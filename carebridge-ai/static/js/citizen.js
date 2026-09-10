@@ -4,12 +4,13 @@ const state = {
   demoScenarios: {},
   casesById: new Map(),
   renderedIds: new Set(),
+  caseFilter: "all",
   pendingPreview: null, // { preview_id, raw_text, urgency, vulnerability_score, profile, matched_schemes, gaps, patient_summary_markdown, ... }
 };
 
 document.addEventListener("DOMContentLoaded", () => {
   loadDemoScenarios();
-  if (document.getElementById("case-feed")) loadMyCases();
+  if (document.getElementById("case-feed")) { loadMyCases(); initialiseCaseFilters(); }
 
 
 });
@@ -59,6 +60,8 @@ function addCaseToFeed(record, { animate }) {
   feed.classList.remove("hidden");
   const card = document.createElement("article");
   card.className = "case-card" + (animate ? " case-card--enter" : "");
+  card.dataset.caseId = record.case_id;
+  card.dataset.status = (record.status || "New").toLowerCase();
   card.innerHTML = `<div class="flex justify-between gap-3 mb-3"><p class="text-xs font-mono text-slate-500">${escapeHtml(record.case_id)}</p><span class="status-chip">${escapeHtml(record.status || "New")}</span></div>
     <p class="text-xs text-slate-400 mb-3 whitespace-pre-wrap">${escapeHtml(record.raw_text)}</p>
     <p class="text-xs text-slate-300 mb-3">Priority: ${escapeHtml(record.urgency)}</p>
@@ -73,6 +76,7 @@ function addCaseToFeed(record, { animate }) {
   for (const [label, callback] of [
     ["View Full Summary", () => openSummaryModal(record.case_id)],
     [(record.follow_ups || []).length ? `View ${record.follow_ups.length} Worker Follow-ups` : "Check Worker Follow-ups", () => openFollowUpsModal(record.case_id)],
+    ["Delete Case", () => deleteCase(record.case_id)],
   ]) {
     const button = document.createElement("button");
     button.className = "mini-action-btn w-full mt-2";
@@ -81,8 +85,40 @@ function addCaseToFeed(record, { animate }) {
     card.appendChild(button);
   }
   feed.prepend(card);
+  applyCaseFilter();
   document.getElementById("case-count-badge").textContent = `${state.renderedIds.size} case${state.renderedIds.size === 1 ? "" : "s"}`;
   lucide.createIcons();
+}
+
+function initialiseCaseFilters() {
+  document.querySelectorAll("[data-case-filter]").forEach(button => button.addEventListener("click", () => {
+    state.caseFilter = button.dataset.caseFilter;
+    document.querySelectorAll("[data-case-filter]").forEach(item => item.removeAttribute("aria-current"));
+    button.setAttribute("aria-current", "page");
+    applyCaseFilter();
+  }));
+}
+
+function applyCaseFilter() {
+  document.querySelectorAll("#case-feed .case-card").forEach(card => {
+    const status = card.dataset.status;
+    const visible = state.caseFilter === "all" || (state.caseFilter === "reviewed" ? status === "reviewed" : status !== "reviewed");
+    card.classList.toggle("hidden", !visible);
+  });
+}
+
+async function deleteCase(caseId) {
+  if (!window.confirm(`Delete case ${caseId}? This permanently removes its details, follow-ups and documents.`)) return;
+  try {
+    const response = await fetch(`/api/my-cases/${encodeURIComponent(caseId)}`, { method: "DELETE" });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || "Could not delete this case.");
+    state.casesById.delete(caseId); state.renderedIds.delete(caseId);
+    document.querySelector(`#case-feed .case-card[data-case-id="${CSS.escape(caseId)}"]`)?.remove();
+    document.getElementById("case-count-badge").textContent = `${state.renderedIds.size} case${state.renderedIds.size === 1 ? "" : "s"}`;
+    if (!state.renderedIds.size) { document.getElementById("hub-empty").classList.remove("hidden"); document.getElementById("case-feed").classList.add("hidden"); }
+    showToast("Case deleted.");
+  } catch (error) { showToast(error.message, true); }
 }
 
 async function openFollowUpsModal(caseId) {

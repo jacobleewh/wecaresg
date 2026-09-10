@@ -591,6 +591,25 @@ def create_case_follow_up(case_id: str, worker_id: str, note: str, document: dic
         session.close()
 
 
+def delete_case_for_citizen(case_id: str, citizen_id: str) -> list[str] | None:
+    """Permanently removes one citizen-owned case and returns its attachment
+    filenames so the web layer can remove the corresponding local files."""
+    session = SessionLocal()
+    try:
+        case = session.query(Case).filter_by(id=case_id, citizen_id=citizen_id).first()
+        if not case:
+            return None
+        document_paths = [item.document_path for item in case.follow_ups if item.document_path]
+        session.delete(case)
+        session.commit()
+        return document_paths
+    except Exception:
+        session.rollback()
+        raise
+    finally:
+        session.close()
+
+
 def get_follow_up_for_download(follow_up_id: int) -> dict | None:
     session = SessionLocal()
     try:

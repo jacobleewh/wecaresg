@@ -360,6 +360,21 @@ def api_my_case_follow_ups(case_id):
     return jsonify(record.get("follow_ups", []))
 
 
+@app.route("/api/my-cases/<case_id>", methods=["DELETE"])
+@citizen_required
+def api_delete_my_case(case_id):
+    document_paths = database.delete_case_for_citizen(case_id, session["citizen_id"])
+    if document_paths is None:
+        return jsonify({"error": "Case not found."}), 404
+    for filename in document_paths:
+        safe_path = FOLLOW_UP_UPLOAD_DIR / Path(filename).name
+        try:
+            safe_path.unlink(missing_ok=True)
+        except OSError:
+            logger.warning("Could not remove follow-up document %s", safe_path)
+    return jsonify({"ok": True})
+
+
 def _distance_km(lat1, lng1, lat2, lng2):
     """Great-circle distance used as a walking-distance estimate."""
     radius_km = 6371
