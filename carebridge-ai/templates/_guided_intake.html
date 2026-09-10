@@ -1,0 +1,81 @@
+<section class="glass-card card-accent card-accent--emerald p-6" aria-labelledby="triage-heading">
+  <h1 id="triage-heading" class="text-2xl font-bold text-white mb-2">Find the right support for you</h1>
+  <p class="text-sm text-slate-400 mb-5">Answer a few questions, explore your recommendations, then decide if you want a case worker's help.</p>
+  <ol id="triage-progress" class="flex flex-wrap gap-2 mb-6 text-xs" aria-label="Assessment progress">
+    <li class="channel-pill" data-step="0">1. Your situation</li>
+    <li class="channel-pill" data-step="1">2. Household</li>
+    <li class="channel-pill" data-step="2">3. Support needs</li>
+    <li class="channel-pill" data-step="3">4. Review</li>
+    <li class="channel-pill" data-step="4">5. Recommendations</li>
+  </ol>
+  <form id="guided-intake-form">
+    <fieldset data-intake-step="0">
+      <legend class="text-lg font-semibold text-white mb-3" tabindex="-1">What brings you here today?</legend>
+      <p class="text-sm text-slate-400 mb-4">Tell us what has changed and what you are finding difficult. Singlish is welcome.</p>
+      <label for="intake-input" class="block text-sm mb-2">Your situation</label>
+      <textarea id="intake-input" class="intake-textarea w-full" rows="5" required maxlength="6000" placeholder="For example: I recently lost my job and am struggling with daily expenses."></textarea>
+      <div class="flex flex-wrap gap-2 mt-3">
+        <span class="text-xs text-slate-500 w-full">Try an example, then add your details in the following steps:</span>
+        <button type="button" onclick="loadDemo('A')" class="demo-pill">Retrenched parent</button>
+        <button type="button" onclick="loadDemo('B')" class="demo-pill">Elderly person</button>
+        <button type="button" onclick="loadDemo('C')" class="demo-pill">Single parent</button>
+      </div>
+    </fieldset>
+    <fieldset data-intake-step="1" class="hidden" disabled>
+      <legend class="text-lg font-semibold text-white mb-3" tabindex="-1">Tell us about your household</legend>
+      <p id="household-hint" class="text-sm text-slate-400 mb-4">Include who lives with you, their ages, people you support, total monthly household income, housing type and citizenship or residency. Write “not sure” or “prefer not to say” for details you cannot share.</p>
+      <label for="household-input" class="block text-sm mb-2">Household and finances</label>
+      <textarea id="household-input" aria-describedby="household-hint" class="intake-textarea w-full" rows="6" required maxlength="4000" placeholder="For example: I live with my two school-going children in a rental flat. Our total household income is $1,200 per month."></textarea>
+    </fieldset>
+    <fieldset data-intake-step="2" class="hidden" disabled>
+      <legend class="text-lg font-semibold text-white mb-3" tabindex="-1">What help do you need?</legend>
+      <p id="needs-hint" class="text-sm text-slate-400 mb-4">Tell us about food, rent, utilities, medical bills, school or childcare costs, work or caregiving. Include any deadlines, immediate needs and assistance you already receive. You can say “not sure” if you need guidance.</p>
+      <label for="needs-input" class="block text-sm mb-2">Support needs and timing</label>
+      <textarea id="needs-input" aria-describedby="needs-hint" class="intake-textarea w-full" rows="6" required maxlength="4000" placeholder="For example: Rent is overdue, I need help with groceries this week, and I am not receiving assistance yet."></textarea>
+    </fieldset>
+    <fieldset data-intake-step="3" class="hidden" disabled>
+      <legend class="text-lg font-semibold text-white mb-3" tabindex="-1">Review your details</legend>
+      <p class="text-sm text-slate-400 mb-4">Check your answers before we prepare recommendations. You can go back to edit them.</p>
+      <div id="intake-review" class="space-y-4"></div>
+      <p class="text-xs text-slate-400 mt-4">Getting recommendations does not submit a case.</p>
+    </fieldset>
+    <p id="triage-error" role="alert" class="text-sm text-rose-300 mt-3"></p>
+    <div id="intake-navigation" class="flex flex-wrap items-center gap-3 mt-5">
+      <button id="intake-back" type="button" onclick="changeIntakeStep(-1)" class="mini-action-btn hidden">Back</button>
+      <button id="submit-btn" type="submit" class="submit-btn flex-1"><span id="submit-btn-label">Continue</span></button>
+    </div>
+  </form>
+  <section id="triage-recommendations" class="hidden" aria-labelledby="recommendations-heading">
+    <h2 id="recommendations-heading" tabindex="-1" class="text-xl font-bold text-white mb-3">Your recommended next steps</h2>
+    <p class="text-sm text-slate-400 mb-4">These are possible support options, not confirmation of eligibility. The administering agency will check your circumstances and current criteria.</p>
+    <details class="mb-6 rounded-xl border border-white/10 p-4">
+      <summary class="text-sm font-semibold text-emerald-300 cursor-pointer">Read your full assessment summary</summary>
+      <div id="recommendation-summary" class="mt-4"></div>
+    </details>
+    <h3 class="text-lg font-semibold text-white mb-3">Schemes, vouchers and practical support</h3>
+    <div id="recommendation-schemes" class="space-y-4 mb-6"></div>
+    <div id="recommendation-sources" class="text-sm text-slate-300 mb-6"></div>
+    <iframe id="search-suggestions" title="Google Search suggestions" sandbox="allow-popups allow-popups-to-escape-sandbox" referrerpolicy="no-referrer" class="hidden w-full border-0 mb-4"></iframe>
+    <h3 class="text-lg font-semibold text-white mb-3">Needs to follow up</h3>
+    <ul id="recommendation-gaps" class="list-disc pl-5 text-sm text-slate-300 space-y-2 mb-6"></ul>
+    <div class="rounded-xl border border-emerald-400/30 p-4">
+      <h3 class="text-lg font-semibold text-white mb-2">Would a case worker help?</h3>
+      <p id="support-advice" class="text-sm text-slate-300 mb-4"></p>
+      <label for="support-choice" class="block text-sm mb-2">Choose how you would like to proceed</label>
+      <select id="support-choice" class="intake-textarea w-full" onchange="updateSupportChoice()">
+        <option value="">Select an option</option>
+        <option value="help">I would like a case worker's help</option>
+        <option value="unsure">I am unsure and would like guidance</option>
+        <option value="self">I will explore the recommendations myself</option>
+      </select>
+      <p id="support-choice-message" role="status" class="text-sm text-slate-400 mt-3"></p>
+      <button id="recommendation-submit-btn" type="button" onclick="confirmSubmitCase()" class="submit-btn mt-4 hidden">Submit case for help</button>
+    </div>
+    <div class="flex flex-wrap gap-3 mt-5">
+      <button id="edit-intake-btn" type="button" onclick="editIntake()" class="mini-action-btn">Edit my answers</button>
+      <button type="button" onclick="downloadRecommendations()" class="mini-action-btn">Download recommendations</button>
+      <a href="{{ url_for('support_locator_page') }}" class="mini-action-btn">Find nearby support</a>
+    </div>
+    <p id="triage-submitted" role="status" class="text-sm text-emerald-300 mt-4"></p>
+  </section>
+</section>

@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}Nearby Support Locator | WeCareSG{% endblock %}
+{% block extra_head %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<style>
+  .support-locator-page .glass-card { min-height: 0; }
+  #support-map { height: 480px; width: 100%; z-index: 0; }
+  @media (max-width: 640px) { #support-map { height: 340px; } }
+  .channel-pill[aria-current="page"] { color: #34d399; border-color: #34d399; }
+</style>
+{% endblock %}
+{% block body %}
+{% include "_citizen_nav.html" %}
+<main class="support-locator-page flex-1 max-w-[1400px] w-full mx-auto px-6 py-8">
+  <div class="mb-6">
+    <h1 class="font-display text-3xl text-white mb-2">Nearby Support Locator</h1>
+    <p class="text-sm text-slate-400">Find social service offices, family service centres and food support near you.</p>
+  </div>
+  <section class="glass-card card-accent card-accent--emerald p-6 mb-6" aria-labelledby="search-heading">
+    <h2 id="search-heading" class="text-lg font-bold text-white mb-4">Search your neighbourhood</h2>
+    <form id="support-locator-form" class="flex flex-col sm:flex-row sm:items-end gap-3 mb-4">
+      <div class="flex-1 max-w-md">
+        <label for="support-postal-code" class="block text-sm text-slate-300 mb-2">Singapore postal code</label>
+        <input id="support-postal-code" name="postal_code" type="text" inputmode="numeric" autocomplete="postal-code" pattern="[0-9]{6}" maxlength="6" required placeholder="e.g. 569933" class="intake-textarea w-full" aria-describedby="support-locator-message">
+      </div>
+      <button id="support-locator-submit" type="submit" class="submit-btn sm:w-auto px-6">Find nearby support</button>
+    </form>
+    <p id="support-locator-message" role="status" aria-live="polite" class="text-xs mb-3 text-slate-400">Enter your 6-digit postal code to see nearby locations.</p>
+  </section>
+  <div class="grid grid-cols-1 lg:grid-cols-5 gap-6">
+    <section class="glass-card p-4 lg:col-span-3 min-w-0" aria-labelledby="map-heading">
+      <h2 id="map-heading" class="text-lg font-bold text-white mb-3">Support map</h2>
+      <div id="support-map" class="rounded-xl" aria-label="Map of nearby support locations"></div>
+    </section>
+    <section class="glass-card p-6 lg:col-span-2" aria-labelledby="results-heading">
+      <h2 id="results-heading" class="text-lg font-bold text-white mb-2">Nearby locations</h2>
+      <p class="text-xs text-slate-400 mb-4">Distances are estimates. Open a transit route to plan your visit.</p>
+      <div id="support-location-results" class="space-y-3" aria-live="polite">
+        <p class="text-sm text-slate-500 py-8 text-center">Search a postal code to see support options here.</p>
+      </div>
+    </section>
+  </div>
+</main>
+{% endblock %}
+{% block extra_scripts %}
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="{{ url_for('static', filename='js/support-locator.js') }}"></script>
+{% endblock %}

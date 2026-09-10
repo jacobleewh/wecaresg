@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>{% block title %}WeCareSG{% endblock %}</title>
+
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        colors: {
+          canvas: '#090D16',
+          panel: '#0B0F19',
+          emerald: { 500: '#10B981', 400: '#34D399' },
+          amber: { 500: '#F59E0B', 400: '#FBBF24' },
+          violet: { 500: '#6366F1', 400: '#818CF8' },
+          rose: { 500: '#F43F5E', 400: '#FB7185' },
+          sky: { 500: '#0EA5E9', 400: '#38BDF8' },
+          pink: { 500: '#EC4899', 400: '#F472B6' },
+          gold: { 500: '#D9A441', 400: '#E8BE6C' },
+        },
+        fontFamily: {
+          sans: ['Inter', 'system-ui', 'sans-serif'],
+          display: ['Fraunces', 'ui-serif', 'Georgia', 'serif'],
+        },
+      },
+    },
+  };
+</script>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/lucide@latest"></script>
+
+<link rel="stylesheet" href="{{ url_for('static', filename='css/custom.css') }}">
+{% block extra_head %}{% endblock %}
+</head>
+<body class="bg-canvas text-slate-200 font-sans min-h-screen overflow-x-hidden">
+
+<!-- Grain texture overlay -->
+<div class="grain-overlay"></div>
+
+<!-- Ambient background glow -->
+<div class="ambient-glow ambient-glow--emerald"></div>
+<div class="ambient-glow ambient-glow--gold"></div>
+
+<div class="relative z-10 min-h-screen flex flex-col">
+{% block body %}{% endblock %}
+</div>
+
+<!-- Toast -->
+<div id="toast" class="toast">
+  <i data-lucide="check-circle-2" class="w-4 h-4 text-emerald-400"></i>
+  <span id="toast-message">Done.</span>
+</div>
+
+<script>
+  document.addEventListener("DOMContentLoaded", () => lucide.createIcons());
+
+  let toastTimer = null;
+  function showToast(message, isError = false) {
+    const toast = document.getElementById("toast");
+    const msgEl = document.getElementById("toast-message");
+    msgEl.textContent = message;
+    toast.style.borderColor = isError ? "rgba(239,68,68,0.4)" : "rgba(16,185,129,0.4)";
+    toast.classList.add("show");
+    if (toastTimer) clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => toast.classList.remove("show"), 2800);
+  }
+</script>
+{% block extra_scripts %}{% endblock %}
+</body>
+</html>

@@ -1,0 +1,275 @@
+{% extends "base.html" %}
+{% block title %}WeCareSG — Bridging Every Family to the Right Support{% endblock %}
+
+{% block body %}
+  <!-- Site Nav -->
+  <header class="site-nav sticky top-0 z-30">
+    <div class="max-w-[1200px] mx-auto px-6 py-4 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <a href="{{ url_for('landing') }}" class="flex items-center gap-3">
+          <span class="brand-logo-badge">
+            <img src="{{ url_for('static', filename='images/logo.png') }}" alt="WeCareSG" />
+          </span>
+          <span>
+            <span class="font-display block text-lg font-semibold tracking-tight text-white leading-none">WeCareSG</span>
+            <span class="block text-[10.5px] text-slate-500 tracking-wide mt-0.5">Social Assistance Triage Intelligence</span>
+          </span>
+        </a>
+      </div>
+
+      <div class="flex items-center gap-2">
+        <a href="{{ url_for('login_page', role='citizen') }}" class="channel-pill">
+          <i data-lucide="user" class="w-3 h-3"></i>Citizen Login
+        </a>
+        <a href="{{ url_for('login_page', role='worker') }}" class="channel-pill">
+          <i data-lucide="briefcase" class="w-3 h-3"></i>Case Worker Login
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <main class="flex-1">
+    <!-- Hero -->
+    <section id="product" class="max-w-[1200px] w-full mx-auto px-6 pt-8 sm:pt-10 pb-16 grid grid-cols-1 lg:grid-cols-[1.1fr_0.9fr] gap-16 items-center">
+      <div>
+        <div class="premium-badge mb-7">
+          Powered by Gemini AI &middot; Offline-first fallback &middot; Zero API key required
+        </div>
+        <h2 class="font-display text-4xl sm:text-6xl font-semibold tracking-tight leading-[1.08] text-gradient mb-6">
+          Bridging every family to the right support, instantly.
+        </h2>
+        <p class="text-base text-slate-400 max-w-lg mb-10 leading-relaxed">
+          WeCareSG reads a family's hardship narrative, scores urgency, and matches it against
+          Singapore's real assistance schemes in real time &mdash; through web chat or Telegram, with a
+          live dashboard for case workers on the other end.
+        </p>
+
+        <div class="flex flex-wrap items-center gap-4 mb-14">
+          <a href="{{ url_for('login_page', role='citizen') }}" class="landing-cta landing-cta--primary">
+            <i data-lucide="hand-heart" class="w-4 h-4"></i>
+            I Need Assistance
+          </a>
+          <a href="{{ url_for('login_page', role='worker') }}" class="landing-cta landing-cta--secondary">
+            <i data-lucide="shield-check" class="w-4 h-4"></i>
+            Case Worker Login
+          </a>
+        </div>
+
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 max-w-2xl">
+          <div class="premium-stat">
+            <div class="premium-stat-value"><span class="count-up" data-target="9">0</span></div>
+            <div class="premium-stat-label">SG Schemes</div>
+          </div>
+          <div class="premium-stat">
+            <div class="premium-stat-value"><span class="count-up" data-target="100">0</span>%</div>
+            <div class="premium-stat-label">Offline Capable</div>
+          </div>
+          <div class="premium-stat">
+            <div class="premium-stat-value">&lt;<span class="count-up" data-target="1">0</span>s</div>
+            <div class="premium-stat-label">Avg. Triage Time</div>
+          </div>
+          <div class="premium-stat">
+            <div class="premium-stat-value"><span class="count-up" data-target="2">0</span></div>
+            <div class="premium-stat-label">Intake Channels</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Live-look preview panel -->
+      <div class="hero-panel-frame">
+        <div class="hero-carousel-viewport" aria-label="Rotating case match previews">
+          <div class="hero-carousel-track">
+          <article class="hero-panel hero-case-card">
+            <div class="flex items-center justify-between mb-4"><span class="text-[11px] font-mono text-slate-500">CB-A00FF6E7</span><span class="urgency-chip urgency-high">High Urgency</span></div>
+            <p class="text-xs text-slate-400 leading-relaxed mb-5">"Lost my job last month, 2 kids in primary school, rent is 2 months overdue&hellip;"</p>
+            <div class="hero-panel-row"><span class="text-xs text-slate-400 flex items-center gap-2"><i data-lucide="shield-check" class="w-3.5 h-3.5 text-emerald-400"></i>ComCare Short-to-Medium-Term Assistance</span><span class="text-xs font-bold text-emerald-400">94%</span></div>
+            <div class="hero-panel-row"><span class="text-xs text-slate-400 flex items-center gap-2"><i data-lucide="shield-check" class="w-3.5 h-3.5 text-emerald-400"></i>MOE Financial Assistance Scheme</span><span class="text-xs font-bold text-emerald-400">88%</span></div>
+            <div class="hero-panel-row"><span class="text-xs text-slate-400 flex items-center gap-2"><i data-lucide="shield-check" class="w-3.5 h-3.5 text-emerald-400"></i>CDC Assistance Scheme</span><span class="text-xs font-bold text-emerald-400">81%</span></div>
+            <div class="mt-5 pt-4 border-t border-white/10 flex items-center gap-2 text-[11px] text-slate-500"><i data-lucide="radio" class="w-3 h-3 text-emerald-400"></i>Synced live to case worker dashboard via SSE</div>
+          </article>
+          <article class="hero-panel hero-case-card">
+            <div class="flex items-center justify-between mb-4"><span class="text-[11px] font-mono text-slate-500">CB-7C2B81D4</span><span class="urgency-chip urgency-medium">Medium Urgency</span></div>
+            <p class="text-xs text-slate-400 leading-relaxed mb-5">"My mum needs dialysis and our utilities bills have become difficult to manage&hellip;"</p>
+            <div class="hero-panel-row"><span class="text-xs text-slate-400 flex items-center gap-2"><i data-lucide="shield-check" class="w-3.5 h-3.5 text-emerald-400"></i>MediFund</span><span class="text-xs font-bold text-emerald-400">91%</span></div>
+            <div class="hero-panel-row"><span class="text-xs text-slate-400 flex items-center gap-2"><i data-lucide="shield-check" class="w-3.5 h-3.5 text-emerald-400"></i>Kidney Dialysis Subsidy</span><span class="text-xs font-bold text-emerald-400">87%</span></div>
+            <div class="hero-panel-row"><span class="text-xs text-slate-400 flex items-center gap-2"><i data-lucide="shield-check" class="w-3.5 h-3.5 text-emerald-400"></i>ComCare SMTA</span><span class="text-xs font-bold text-emerald-400">79%</span></div>
+            <div class="mt-5 pt-4 border-t border-white/10 flex items-center gap-2 text-[11px] text-slate-500"><i data-lucide="radio" class="w-3 h-3 text-emerald-400"></i>Eligibility signals verified locally</div>
+          </article>
+          <article class="hero-panel hero-case-card">
+            <div class="flex items-center justify-between mb-4"><span class="text-[11px] font-mono text-slate-500">CB-F91E36A2</span><span class="urgency-chip urgency-high">High Urgency</span></div>
+            <p class="text-xs text-slate-400 leading-relaxed mb-5">"I am a single parent with a newborn and we have no food left at home&hellip;"</p>
+            <div class="hero-panel-row"><span class="text-xs text-slate-400 flex items-center gap-2"><i data-lucide="shield-check" class="w-3.5 h-3.5 text-emerald-400"></i>Family Service Centre Food Relief</span><span class="text-xs font-bold text-emerald-400">96%</span></div>
+            <div class="hero-panel-row"><span class="text-xs text-slate-400 flex items-center gap-2"><i data-lucide="shield-check" class="w-3.5 h-3.5 text-emerald-400"></i>Infant Care Subsidy</span><span class="text-xs font-bold text-emerald-400">90%</span></div>
+            <div class="hero-panel-row"><span class="text-xs text-slate-400 flex items-center gap-2"><i data-lucide="shield-check" class="w-3.5 h-3.5 text-emerald-400"></i>KidSTART Support</span><span class="text-xs font-bold text-emerald-400">84%</span></div>
+            <div class="mt-5 pt-4 border-t border-white/10 flex items-center gap-2 text-[11px] text-slate-500"><i data-lucide="radio" class="w-3 h-3 text-emerald-400"></i>Priority referral queued for review</div>
+          </article>
+          <article class="hero-panel hero-case-card" aria-hidden="true">
+            <div class="flex items-center justify-between mb-4"><span class="text-[11px] font-mono text-slate-500">CB-A00FF6E7</span><span class="urgency-chip urgency-high">High Urgency</span></div>
+            <p class="text-xs text-slate-400 leading-relaxed mb-5">"Lost my job last month, 2 kids in primary school, rent is 2 months overdue&hellip;"</p>
+            <div class="hero-panel-row"><span class="text-xs text-slate-400 flex items-center gap-2"><i data-lucide="shield-check" class="w-3.5 h-3.5 text-emerald-400"></i>ComCare Short-to-Medium-Term Assistance</span><span class="text-xs font-bold text-emerald-400">94%</span></div>
+            <div class="hero-panel-row"><span class="text-xs text-slate-400 flex items-center gap-2"><i data-lucide="shield-check" class="w-3.5 h-3.5 text-emerald-400"></i>MOE Financial Assistance Scheme</span><span class="text-xs font-bold text-emerald-400">88%</span></div>
+            <div class="hero-panel-row"><span class="text-xs text-slate-400 flex items-center gap-2"><i data-lucide="shield-check" class="w-3.5 h-3.5 text-emerald-400"></i>CDC Assistance Scheme</span><span class="text-xs font-bold text-emerald-400">81%</span></div>
+            <div class="mt-5 pt-4 border-t border-white/10 flex items-center gap-2 text-[11px] text-slate-500"><i data-lucide="radio" class="w-3 h-3 text-emerald-400"></i>Synced live to case worker dashboard via SSE</div>
+          </article>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Trust strip -->
+    <section id="trust" class="max-w-[1200px] w-full mx-auto px-6">
+      <div class="trust-strip">
+        <span class="trust-item"><i data-lucide="lock" class="w-3.5 h-3.5 text-emerald-400"></i>PDPA-aware NRIC &amp; phone masking</span>
+        <span class="trust-item"><i data-lucide="wifi-off" class="w-3.5 h-3.5 text-emerald-400"></i>Runs fully offline, zero API key required</span>
+        <span class="trust-item"><i data-lucide="database" class="w-3.5 h-3.5 text-emerald-400"></i>Local SQLite &mdash; no data leaves this machine</span>
+        <span class="trust-item"><i data-lucide="key-round" class="w-3.5 h-3.5 text-emerald-400"></i>Hashed passwords, account-gated submissions</span>
+      </div>
+    </section>
+
+    <!-- How it works -->
+    <section id="how-it-works" class="max-w-[1200px] w-full mx-auto px-6 py-24">
+      <div class="max-w-xl mb-12">
+        <div class="section-eyebrow">How It Works</div>
+        <h3 class="font-display text-3xl font-semibold text-white tracking-tight">From plain-language message to matched support, in three steps.</h3>
+      </div>
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-5">
+        <div class="step-card">
+          <div class="step-number">01</div>
+          <h4 class="font-bold text-white mb-2">Describe your situation</h4>
+          <p class="text-sm text-slate-400 leading-relaxed">Type it in plain language &mdash; Singlish welcome &mdash; over web chat or Telegram. No forms, no jargon.</p>
+        </div>
+        <div class="step-card">
+          <div class="step-number">02</div>
+          <h4 class="font-bold text-white mb-2">AI triage &amp; scoring</h4>
+          <p class="text-sm text-slate-400 leading-relaxed">Gemini (or the offline fallback) extracts your household profile, scores urgency, and masks any NRIC or phone numbers.</p>
+        </div>
+        <div class="step-card">
+          <div class="step-number">03</div>
+          <h4 class="font-bold text-white mb-2">Matched &amp; routed</h4>
+          <p class="text-sm text-slate-400 leading-relaxed">Real SG schemes are ranked by eligibility and streamed live to an available case worker for review.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Feature rows -->
+    <section class="max-w-[1200px] w-full mx-auto px-6 pb-24 grid grid-cols-1 lg:grid-cols-2 gap-x-16">
+      <div>
+        <div class="feature-row">
+          <div class="feature-icon-box"><i data-lucide="radar" class="w-5 h-5 text-emerald-400"></i></div>
+          <div>
+            <h4 class="font-bold text-white mb-1">Instant Triage</h4>
+            <p class="text-xs text-slate-400 leading-relaxed">Describe your situation in plain language and get matched in seconds &mdash; no waiting room, no queue number.</p>
+          </div>
+        </div>
+        <div class="feature-row">
+          <div class="feature-icon-box"><i data-lucide="send" class="w-5 h-5 text-emerald-400"></i></div>
+          <div>
+            <h4 class="font-bold text-white mb-1">Web + Telegram</h4>
+            <p class="text-xs text-slate-400 leading-relaxed">Submit from a browser or our Telegram bot &mdash; every case syncs live to the case worker dashboard.</p>
+          </div>
+        </div>
+        <div class="feature-row">
+          <div class="feature-icon-box"><i data-lucide="users-round" class="w-5 h-5 text-emerald-400"></i></div>
+          <div>
+            <h4 class="font-bold text-white mb-1">Case Worker Collaboration</h4>
+            <p class="text-xs text-slate-400 leading-relaxed">Accept, decline, or refer a case to a colleague by their Worker ID &mdash; only one worker ever owns a case.</p>
+          </div>
+        </div>
+      </div>
+      <div>
+        <div class="feature-row">
+          <div class="feature-icon-box"><i data-lucide="brain-circuit" class="w-5 h-5 text-emerald-400"></i></div>
+          <div>
+            <h4 class="font-bold text-white mb-1">AI Case Synthesis</h4>
+            <p class="text-xs text-slate-400 leading-relaxed">Gemini-powered summaries explain exactly why each scheme matched, with a fully offline fallback if unavailable.</p>
+          </div>
+        </div>
+        <div class="feature-row">
+          <div class="feature-icon-box"><i data-lucide="lock" class="w-5 h-5 text-emerald-400"></i></div>
+          <div>
+            <h4 class="font-bold text-white mb-1">PDPA-Aware Masking</h4>
+            <p class="text-xs text-slate-400 leading-relaxed">NRIC and phone numbers are automatically masked before any data is stored or analyzed.</p>
+          </div>
+        </div>
+        <div class="feature-row">
+          <div class="feature-icon-box"><i data-lucide="activity" class="w-5 h-5 text-emerald-400"></i></div>
+          <div>
+            <h4 class="font-bold text-white mb-1">Live Case Feed</h4>
+            <p class="text-xs text-slate-400 leading-relaxed">Vulnerability scores, matched schemes, and gaps stream to case workers in real time via SSE.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Schemes marquee -->
+    <section id="schemes" class="max-w-[1200px] w-full mx-auto px-6 pb-24">
+      <div class="max-w-xl mb-8">
+        <div class="section-eyebrow">Schemes Covered</div>
+        <h3 class="font-display text-3xl font-semibold text-white tracking-tight">Real Singapore assistance schemes, scored by real eligibility criteria.</h3>
+      </div>
+      <div class="scheme-marquee">
+        <span class="scheme-marquee-chip">ComCare Short-to-Medium-Term Assistance</span>
+        <span class="scheme-marquee-chip">Silver Support Scheme</span>
+        <span class="scheme-marquee-chip">Medifund</span>
+        <span class="scheme-marquee-chip">MOE Financial Assistance Scheme</span>
+        <span class="scheme-marquee-chip">CDC Assistance Scheme</span>
+        <span class="scheme-marquee-chip">Dialysis Subsidy Scheme</span>
+        <span class="scheme-marquee-chip">Public Assistance</span>
+        <span class="scheme-marquee-chip">KidSTART</span>
+        <span class="scheme-marquee-chip">Home Caregiving Grant</span>
+      </div>
+    </section>
+  </main>
+
+  <!-- Footer -->
+  <footer class="footer-premium">
+    <div class="max-w-[1200px] w-full mx-auto px-6 py-14 grid grid-cols-2 sm:grid-cols-4 gap-8">
+      <div class="col-span-2 sm:col-span-1">
+        <div class="flex items-center gap-2 mb-3">
+          <img src="{{ url_for('static', filename='images/logo.png') }}" alt="WeCareSG" class="h-8 w-auto rounded-md" />
+        </div>
+        <p class="text-xs text-slate-500 leading-relaxed">Prototype for Singapore's social assistance ecosystem. Not a substitute for official agency advice.</p>
+      </div>
+      <div>
+        <p class="footer-col-title">Product</p>
+        <a href="#product" class="footer-link">Overview</a>
+        <a href="#how-it-works" class="footer-link">How It Works</a>
+        <a href="#schemes" class="footer-link">Schemes Covered</a>
+      </div>
+      <div>
+        <p class="footer-col-title">Access</p>
+        <a href="{{ url_for('login_page', role='citizen') }}" class="footer-link">Citizen Login</a>
+        <a href="{{ url_for('signup_page', role='citizen') }}" class="footer-link">Citizen Sign Up</a>
+        <a href="{{ url_for('login_page', role='worker') }}" class="footer-link">Case Worker Login</a>
+      </div>
+      <div>
+        <p class="footer-col-title">Trust &amp; Privacy</p>
+        <span class="footer-link" style="cursor:default">PDPA-aware masking</span>
+        <span class="footer-link" style="cursor:default">Local-only SQLite storage</span>
+        <span class="footer-link" style="cursor:default">Hashed account passwords</span>
+      </div>
+    </div>
+    <div class="max-w-[1200px] w-full mx-auto px-6 pb-8 pt-4 border-t border-white/5 flex flex-wrap items-center justify-between gap-3 text-[11px] text-slate-500">
+      <p>&copy; WeCareSG &mdash; a social assistance triage prototype.</p>
+      <p class="flex items-center gap-1.5"><i data-lucide="lock" class="w-3 h-3"></i>Runs 100% locally &middot; no data leaves this machine</p>
+    </div>
+  </footer>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+  document.addEventListener("DOMContentLoaded", () => {
+    document.querySelectorAll(".count-up").forEach((el) => {
+      const target = parseInt(el.dataset.target, 10);
+      let current = 0;
+      const step = Math.max(1, Math.round(target / 30));
+      const tick = () => {
+        current = Math.min(current + step, target);
+        el.textContent = current;
+        if (current < target) requestAnimationFrame(tick);
+      };
+      requestAnimationFrame(tick);
+    });
+  });
+</script>
+{% endblock %}
