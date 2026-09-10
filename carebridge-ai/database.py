@@ -380,6 +380,16 @@ def get_citizen_by_telegram_chat(chat_id):
         session.close()
 
 
+def get_telegram_chat_for_citizen(citizen_id: str):
+    """Returns the linked Telegram chat ID for a citizen, if any."""
+    session = SessionLocal()
+    try:
+        citizen = session.query(Citizen).filter_by(id=citizen_id).first()
+        return citizen.telegram_chat_id if citizen else None
+    finally:
+        session.close()
+
+
 def unlink_telegram_chat(chat_id):
     """Logs a Telegram chat out by clearing its citizen link."""
     session = SessionLocal()

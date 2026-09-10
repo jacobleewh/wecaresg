@@ -258,6 +258,15 @@ def _post_submit_keyboard() -> InlineKeyboardMarkup:
     )
 
 
+def _case_list_keyboard(cases: list) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        [
+            [InlineKeyboardButton(f"{record['case_id']} · {record.get('status', 'New')}", callback_data=f"case_{record['case_id']}")]
+            for record in cases[:10]
+        ]
+    )
+
+
 def _edit_field_keyboard() -> InlineKeyboardMarkup:
     buttons = [
         [InlineKeyboardButton(f"\u270F\uFE0F {step['title']}", callback_data=f"edit_field_{step['key']}")]
@@ -524,21 +533,50 @@ async def demo(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def view_case_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await _send_case_recap(update.effective_chat.id, context)
+    await _send_case_recap(update.effective_chat.id, context, context.args[0] if context.args else None)
 
 
-async def _send_case_recap(chat_id: int, context: ContextTypes.DEFAULT_TYPE):
-    case_id = LAST_CASE_BY_CHAT.get(chat_id)
+async def cases_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    chat_id = update.effective_chat.id
+    citizen = _get_citizen(chat_id)
+    if not citizen:
+        await _require_login(chat_id, context)
+        return
+    cases = database.get_cases_for_citizen(citizen["id"])
+    if not cases:
+        await update.message.reply_text("You haven't submitted a case yet. Send /triage to get started.")
+        return
+    await update.message.reply_text(
+        "*Your cases*\nChoose a case to view its status, matched support and worker follow-ups.",
+        parse_mode="Markdown",
+        reply_markup=_case_list_keyboard(cases),
+    )
+
+
+async def _send_case_recap(chat_id: int, context: ContextTypes.DEFAULT_TYPE, case_id: str | None = None):
+    citizen = _get_citizen(chat_id)
+    if not citizen:
+        await _require_login(chat_id, context)
+        return
+    case_id = case_id or LAST_CASE_BY_CHAT.get(chat_id)
     if not case_id:
         await context.bot.send_message(
-            chat_id=chat_id, text="You haven't submitted a case yet. Send /triage to get started."
+            chat_id=chat_id, text="Choose a case with /cases, or send /triage to get started."
         )
         return
     record = database.get_case(case_id)
-    if not record:
+    if not record or record.get("citizen_id") != citizen["id"]:
         await context.bot.send_message(chat_id=chat_id, text="That case could no longer be found.")
         return
-    await context.bot.send_message(chat_id=chat_id, text=_format_case_recap(record), parse_mode="Markdown")
+    text = _format_case_recap(record)
+    follow_ups = record.get("follow_ups", [])
+    if follow_ups:
+        text += "\n\n*Worker Follow-ups:*"
+        for follow_up in follow_ups[:3]:
+            text += f"\n• {follow_up.get('worker_name', 'Case worker')}: {follow_up.get('note') or 'A document was shared.'}"
+            if follow_up.get("has_document"):
+                text += " (document available on the website)"
+    await context.bot.send_message(chat_id=chat_id, text=text, parse_mode="Markdown")
 
 
 async def _begin_triage(chat_id: int, context: ContextTypes.DEFAULT_TYPE):
@@ -588,6 +626,10 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if data == "view_case":
         await _send_case_recap(chat_id, context)
+        return
+
+    if data.startswith("case_"):
+        await _send_case_recap(chat_id, context, data.split("case_", 1)[1])
         return
 
     if data == "demo_menu":
@@ -692,7 +734,7 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
         await update.message.reply_text(
             "Send /triage to start a guided intake, /demo to try an example scenario, "
-            "or /view_case to see your last submitted case."
+            "or /cases to see your submitted cases and worker follow-ups."
         )
         return
 
@@ -736,6 +778,7 @@ def build_application(token: str) -> Application:
     application.add_handler(CommandHandler("logout", logout_command))
     application.add_handler(CommandHandler("triage", triage_command))
     application.add_handler(CommandHandler("demo", demo))
+    application.add_handler(CommandHandler("cases", cases_command))
     application.add_handler(CommandHandler("view_case", view_case_command))
     application.add_handler(CommandHandler("start_new", start_new_command))
     application.add_handler(CallbackQueryHandler(handle_callback))
@@ -751,8 +794,11 @@ def start_polling_in_background(token: str) -> threading.Thread:
     """Zero-config local dev mode: long-polling on a dedicated background thread."""
 
     def _runner():
+        global _bot_loop, _bot_application
         asyncio.set_event_loop(asyncio.new_event_loop())
+        _bot_loop = asyncio.get_event_loop()
         application = build_application(token)
+        _bot_application = application
         logger.info("Telegram bot starting in POLLING mode.")
         # stop_signals=None: signal handlers can only be installed on the main
         # thread, and this bot runs on a background thread alongside Flask.
@@ -803,3 +849,34 @@ def submit_webhook_update(update_dict: dict):
         return
     update = Update.de_json(update_dict, _bot_application.bot)
     asyncio.run_coroutine_threadsafe(_bot_application.process_update(update), _bot_loop)
+
+
+def notify_citizen_of_case_update(record: dict, update_type: str):
+    """Send a best-effort update to a citizen who has linked Telegram.
+
+    This intentionally never blocks or fails a website request.
+    """
+    chat_id = database.get_telegram_chat_for_citizen(record.get("citizen_id", ""))
+    if not chat_id or not _bot_application or not _bot_loop or not _bot_loop.is_running():
+        return
+
+    if update_type == "follow_up":
+        follow_up = (record.get("follow_ups") or [{}])[0]
+        message = (
+            f"📬 <b>New update for case {html.escape(record['case_id'])}</b>\n\n"
+            f"{html.escape(follow_up.get('note') or 'Your case worker shared a document.')}"
+        )
+        if follow_up.get("has_document"):
+            message += "\n\nA document is available in your WeCareSG website case history."
+    else:
+        message = (
+            f"📌 <b>Case {html.escape(record['case_id'])} updated</b>\n\n"
+            f"Status: <b>{html.escape(record.get('status', 'New'))}</b>"
+        )
+
+    try:
+        asyncio.run_coroutine_threadsafe(
+            _bot_application.bot.send_message(chat_id=int(chat_id), text=message, parse_mode="HTML"), _bot_loop
+        )
+    except Exception:
+        logger.exception("Could not schedule Telegram case-update notification")

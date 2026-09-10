@@ -437,6 +437,7 @@ def api_update_case_status(case_id):
         return jsonify({"error": "Case not found."}), 404
 
     database.publish_case(record)
+    bot_service.notify_citizen_of_case_update(record, "status")
     return jsonify(record)
 
 
@@ -513,6 +514,7 @@ def api_send_follow_up(case_id):
         return jsonify({"error": "Case not found."}), 404
 
     database.publish_case(record)
+    bot_service.notify_citizen_of_case_update(record, "follow_up")
     return jsonify(record)
 
 
