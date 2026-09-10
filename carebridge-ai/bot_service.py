@@ -30,6 +30,7 @@ import html
 import logging
 import re
 import threading
+from pathlib import Path
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import (
@@ -899,7 +900,24 @@ def submit_webhook_update(update_dict: dict):
     asyncio.run_coroutine_threadsafe(_bot_application.process_update(update), _bot_loop)
 
 
-def notify_citizen_of_case_update(record: dict, update_type: str):
+async def _send_follow_up_document(chat_id: int, document_file_path: Path, document_name: str):
+    """Deliver a worker's attachment to the linked citizen Telegram chat."""
+    if not document_file_path.is_file():
+        logger.warning("Follow-up document is missing: %s", document_file_path)
+        return
+    try:
+        with document_file_path.open("rb") as document_file:
+            await _bot_application.bot.send_document(
+                chat_id=chat_id,
+                document=document_file,
+                filename=document_name or document_file_path.name,
+                caption="\U0001F4CE Document from your case worker",
+            )
+    except Exception:
+        logger.exception("Could not send follow-up document to Telegram chat %s", chat_id)
+
+
+def notify_citizen_of_case_update(record: dict, update_type: str, document_file_path: Path | None = None):
     """Send a best-effort update to a citizen who has linked Telegram.
 
     This intentionally never blocks or fails a website request.
@@ -915,7 +933,7 @@ def notify_citizen_of_case_update(record: dict, update_type: str):
             f"{html.escape(follow_up.get('note') or 'Your case worker shared a document.')}"
         )
         if follow_up.get("has_document"):
-            message += "\n\nA document is available in your WeCareSG website case history."
+            message += "\n\nThe document is being sent to this chat now."
     else:
         message = (
             f"📌 <b>Case {html.escape(record['case_id'])} updated</b>\n\n"
@@ -926,5 +944,10 @@ def notify_citizen_of_case_update(record: dict, update_type: str):
         asyncio.run_coroutine_threadsafe(
             _bot_application.bot.send_message(chat_id=int(chat_id), text=message, parse_mode="HTML"), _bot_loop
         )
+        if update_type == "follow_up" and document_file_path:
+            follow_up = (record.get("follow_ups") or [{}])[0]
+            asyncio.run_coroutine_threadsafe(
+                _send_follow_up_document(int(chat_id), document_file_path, follow_up.get("document_name") or ""), _bot_loop
+            )
     except Exception:
         logger.exception("Could not schedule Telegram case-update notification")

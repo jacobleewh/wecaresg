@@ -497,13 +497,15 @@ def api_send_follow_up(case_id):
         return jsonify({"error": "Add a follow-up note or document."}), 400
 
     document = None
+    document_file_path = None
     if uploaded and uploaded.filename:
         filename = secure_filename(uploaded.filename)
         extension = filename.rsplit(".", 1)[-1].lower() if "." in filename else ""
         if not filename or extension not in ALLOWED_FOLLOW_UP_EXTENSIONS:
             return jsonify({"error": "Document must be a PDF, DOC, DOCX, or TXT file."}), 400
         stored_name = f"{uuid.uuid4().hex}.{extension}"
-        uploaded.save(FOLLOW_UP_UPLOAD_DIR / stored_name)
+        document_file_path = FOLLOW_UP_UPLOAD_DIR / stored_name
+        uploaded.save(document_file_path)
         document = {"name": filename, "path": stored_name, "mime": uploaded.mimetype or "application/octet-stream"}
 
     try:
@@ -514,7 +516,7 @@ def api_send_follow_up(case_id):
         return jsonify({"error": "Case not found."}), 404
 
     database.publish_case(record)
-    bot_service.notify_citizen_of_case_update(record, "follow_up")
+    bot_service.notify_citizen_of_case_update(record, "follow_up", document_file_path=document_file_path)
     return jsonify(record)
 
 
