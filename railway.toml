@@ -1,0 +1,9 @@
+[build]
+builder = "RAILPACK"
+
+[deploy]
+startCommand = "gunicorn --chdir carebridge-ai --workers 1 --threads 4 --timeout 120 --bind 0.0.0.0:$PORT app:app"
+healthcheckPath = "/"
+healthcheckTimeout = 120
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 10
