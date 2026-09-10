@@ -122,18 +122,6 @@ function renderRecommendations(preview) {
   const gaps = (preview.gaps || []).filter(gap => !/^No major gaps detected/i.test(gap));
   document.getElementById("recommendation-gaps").innerHTML = (gaps.length ? gaps : ["No additional gaps were identified from your answers. You can still ask for help with applications or anything missed."]).map(gap => `<li>${escapeHtml(gap)}</li>`).join("");
   document.getElementById("support-advice").textContent = preview.support_advice || "The assessment did not include guidance on caseworker help.";
-  const sourceList = document.getElementById("recommendation-sources");
-  sourceList.innerHTML = '<h3 class="font-semibold text-white mb-2">Sources used by Gemini</h3>';
-  (preview.sources || []).forEach(source => {
-    try { if (new URL(source.url).protocol !== 'https:') return; } catch { return; }
-    const link = document.createElement('a');
-    link.className = 'block text-emerald-300 underline mb-2';
-    link.href = source.url;
-    link.textContent = source.title;
-    link.target = '_blank';
-    link.rel = 'noopener noreferrer';
-    sourceList.appendChild(link);
-  });
   const suggestions = document.getElementById("search-suggestions");
   suggestions.srcdoc = preview.search_suggestions_html || '';
   suggestions.classList.toggle('hidden', !preview.search_suggestions_html);
