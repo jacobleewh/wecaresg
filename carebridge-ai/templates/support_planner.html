@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}Support Planner | WeCareSG{% endblock %}
+{% block extra_head %}
+<style>.channel-pill[aria-current="page"] { color:#34d399; border-color:#34d399; } .planner-range { accent-color:#34d399; width:100%; }</style>
+{% endblock %}
+{% block body %}
+{% include "_citizen_nav.html" %}
+<main class="flex-1 max-w-[1400px] w-full mx-auto px-6 py-8">
+  <div class="mb-6"><p class="section-eyebrow">Plan your next steps</p><h1 class="font-display text-3xl text-white mb-2">Household Support Planner</h1><p class="text-sm text-slate-400 max-w-3xl">Estimate your household per capita income (PCI), then explore support that may work together. This is planning guidance only; agencies decide eligibility.</p></div>
+  <div class="grid grid-cols-1 xl:grid-cols-5 gap-6">
+    <section class="glass-card card-accent card-accent--emerald p-6 xl:col-span-2" aria-labelledby="pci-heading">
+      <h2 id="pci-heading" class="text-xl font-bold text-white">PCI calculator</h2><p class="text-sm text-slate-400 mt-2 mb-6">PCI = total gross monthly household income ÷ household members.</p>
+      <label class="block text-sm text-slate-200 mb-2" for="income-range">Gross monthly household income <span id="income-value" class="float-right font-bold text-emerald-300">$3,200</span></label>
+      <input id="income-range" class="planner-range" type="range" min="0" max="12000" step="100" value="3200">
+      <label class="block text-sm text-slate-200 mt-7 mb-2" for="members-range">Household members <span id="members-value" class="float-right font-bold text-emerald-300">4</span></label>
+      <input id="members-range" class="planner-range" type="range" min="1" max="12" step="1" value="4">
+      <div class="rounded-2xl bg-emerald-400/10 border border-emerald-400/25 p-5 mt-7 text-center"><p class="text-xs uppercase tracking-widest text-slate-400">Estimated monthly PCI</p><p id="pci-value" class="text-4xl font-display text-emerald-300 mt-1">$800</p></div>
+      <div id="pci-guidance" class="mt-5 space-y-3" aria-live="polite"></div>
+    </section>
+    <section class="glass-card p-6 xl:col-span-3" aria-labelledby="stacking-heading">
+      <div class="flex flex-wrap items-start justify-between gap-3 mb-5"><div><h2 id="stacking-heading" class="text-xl font-bold text-white">Scheme stacking matrix</h2><p class="text-sm text-slate-400 mt-1">Select support areas to see common combinations and checks.</p></div><span id="selection-total" class="text-sm font-semibold text-emerald-300">0 selected</span></div>
+      <div id="scheme-matrix" class="grid grid-cols-1 md:grid-cols-2 gap-3"></div>
+      <div class="rounded-xl border border-white/10 bg-white/[0.03] p-5 mt-6"><h3 class="font-bold text-white">Your support plan</h3><div id="stacking-result" class="text-sm text-slate-300 mt-3"><p>Select one or more support areas to review them together.</p></div></div>
+      <p class="text-xs text-slate-500 mt-5">Income benchmarks: ComCare PCI ≤ $800 is a guide and assessed holistically. MOE FAS (from Jan 2026) uses GHI ≤ $4,000 or PCI ≤ $1,000. Check the relevant agency for current rules.</p>
+    </section>
+  </div>
+</main>
+{% endblock %}
+{% block extra_scripts %}<script src="{{ url_for('static', filename='js/support-planner.js') }}"></script>{% endblock %}

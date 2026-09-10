@@ -11,6 +11,7 @@
       </div>
       <div class="flex flex-wrap items-center gap-2">
         <a href="{{ url_for('citizen_dashboard') }}" class="channel-pill" {% if request.endpoint == 'citizen_dashboard' %}aria-current="page"{% endif %}>My Chat &amp; Cases</a>
+        <a href="{{ url_for('support_planner_page') }}" class="channel-pill" {% if request.endpoint == 'support_planner_page' %}aria-current="page"{% endif %}><i data-lucide="calculator" class="w-3 h-3"></i>Support Planner</a>
         <a href="{{ url_for('support_locator_page') }}" class="channel-pill" {% if request.endpoint == 'support_locator_page' %}aria-current="page"{% endif %}><i data-lucide="map-pin" class="w-3 h-3"></i>Support Locator</a>
         <form method="POST" action="{{ url_for('logout') }}"><button type="submit" class="channel-pill"><i data-lucide="log-out" class="w-3 h-3"></i>Log Out</button></form>
       </div>

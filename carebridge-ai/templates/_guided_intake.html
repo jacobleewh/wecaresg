@@ -73,6 +73,7 @@
     <div class="flex flex-wrap gap-3 mt-5">
       <button id="edit-intake-btn" type="button" onclick="editIntake()" class="mini-action-btn">Edit my answers</button>
       <button type="button" onclick="downloadRecommendations()" class="mini-action-btn">Download recommendations</button>
+      <a href="{{ url_for('support_planner_page') }}" class="mini-action-btn">Plan household support</a>
       <a href="{{ url_for('support_locator_page') }}" class="mini-action-btn">Find nearby support</a>
     </div>
     <p id="triage-submitted" role="status" class="text-sm text-emerald-300 mt-4"></p>

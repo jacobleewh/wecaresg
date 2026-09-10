@@ -270,6 +270,12 @@ def support_locator_page():
     return render_template("support_locator.html", display_name=session.get("display_name"))
 
 
+@app.route("/support-planner")
+@citizen_required
+def support_planner_page():
+    return render_template("support_planner.html", display_name=session.get("display_name"))
+
+
 @app.route("/worker")
 @worker_required
 def worker_dashboard():
