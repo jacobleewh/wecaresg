@@ -99,12 +99,41 @@
         <h3 class="font-bold text-white flex items-center gap-2"><i data-lucide="message-square-plus" class="w-4 h-4 text-emerald-400"></i>Send Citizen Follow-up</h3>
         <button onclick="closeModal('follow-up-modal')" class="modal-close">&times;</button>
       </div>
+
+      <section class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5" aria-label="Your workload summary">
+        <div class="rounded-xl border border-white/10 bg-white/[0.03] p-3"><p class="text-[10px] uppercase tracking-widest text-slate-500">Unclaimed</p><p id="stat-unclaimed" class="text-2xl font-bold text-white mt-1">—</p></div>
+        <div class="rounded-xl border border-white/10 bg-white/[0.03] p-3"><p class="text-[10px] uppercase tracking-widest text-slate-500">My active</p><p id="stat-active" class="text-2xl font-bold text-emerald-300 mt-1">—</p></div>
+        <div class="rounded-xl border border-amber-400/20 bg-amber-400/5 p-3"><p class="text-[10px] uppercase tracking-widest text-amber-300">Due now</p><p id="stat-due" class="text-2xl font-bold text-amber-300 mt-1">—</p></div>
+        <div class="rounded-xl border border-rose-400/20 bg-rose-400/5 p-3"><p class="text-[10px] uppercase tracking-widest text-rose-300">Escalated</p><p id="stat-escalated" class="text-2xl font-bold text-rose-300 mt-1">—</p></div>
+      </section>
+
+      <div class="flex flex-wrap gap-2 mb-5">
+        <input id="case-search" type="search" class="login-input !py-2 flex-1 min-w-[190px]" placeholder="Search case, citizen, need or status" oninput="applyCaseFilters()" />
+        <select id="case-queue-filter" class="login-input !py-2 !w-auto" onchange="applyCaseFilters()"><option value="all">All active</option><option value="unclaimed">Unclaimed</option><option value="mine">Assigned to me</option><option value="due">Due follow-ups</option><option value="escalated">Escalated</option><option value="high">High urgency</option></select>
+        <button onclick="openWorkboardModal(activeSelectedCaseId || [...state.casesById.keys()][0])" class="mini-action-btn"><i data-lucide="list-checks" class="w-3.5 h-3.5"></i>Workboard</button>
+      </div>
       <form id="follow-up-form" onsubmit="return sendFollowUp(event)" class="modal-body space-y-4">
         <p id="follow-up-case-label" class="text-xs text-slate-400"></p>
+        <div class="flex gap-2"><select id="reply-template-select" class="login-input flex-1 !py-2" onchange="applyReplyTemplate()"><option value="">Quick reply template…</option></select><button type="button" onclick="saveReplyTemplate()" class="mini-action-btn" title="Save the current message as a reusable template">Save template</button></div>
         <div><label class="text-xs font-semibold text-slate-300 block mb-1.5" for="follow-up-note">Update for the citizen</label><textarea id="follow-up-note" name="note" rows="4" class="intake-textarea !min-h-0" placeholder="Explain the next steps, appointment details, or support available."></textarea></div>
         <div><label class="text-xs font-semibold text-slate-300 block mb-1.5" for="follow-up-document">Follow-up document</label><input id="follow-up-document" name="document" type="file" accept=".pdf,.doc,.docx,.txt" class="block w-full text-xs text-slate-400 file:mr-3 file:rounded-md file:border-0 file:bg-emerald-500/15 file:px-3 file:py-2 file:text-emerald-300" /><p class="text-[11px] text-slate-500 mt-1">PDF, DOC, DOCX, or TXT up to 10 MB.</p></div>
         <div class="modal-footer !px-0 !pb-0"><button id="follow-up-submit" type="submit" class="mini-action-btn mini-action-btn--emerald"><i data-lucide="send" class="w-3.5 h-3.5"></i>Send Follow-up</button></div>
       </form>
+    </div>
+  </div>
+
+  <!-- Referral note modal -->
+  <div id="workboard-modal" class="modal-overlay hidden">
+    <div class="modal-box max-w-2xl">
+      <div class="modal-header"><h3 class="font-bold text-white flex items-center gap-2"><i data-lucide="clipboard-list" class="w-4 h-4 text-emerald-400"></i>Case Workboard</h3><button onclick="closeModal('workboard-modal')" class="modal-close">&times;</button></div>
+      <div class="modal-body space-y-5">
+        <p id="workboard-case-label" class="text-xs text-slate-400"></p>
+        <section><div class="flex items-center justify-between mb-2"><h4 class="text-sm font-semibold text-white">Private notes</h4><span class="text-[10px] text-amber-300">Workers only</span></div><div id="private-notes-list" class="space-y-2 mb-2"></div><form onsubmit="return addPrivateNote(event)" class="flex gap-2"><input id="private-note-input" class="login-input flex-1 !py-2" maxlength="4000" placeholder="Add an internal case note" /><button class="mini-action-btn mini-action-btn--emerald">Save</button></form></section>
+        <section><h4 class="text-sm font-semibold text-white mb-2">Next action &amp; reminders</h4><div class="flex gap-2"><input id="next-action-input" type="datetime-local" class="login-input flex-1 !py-2" /><button onclick="saveNextAction()" class="mini-action-btn mini-action-btn--emerald">Set reminder</button><button onclick="clearNextAction()" class="mini-action-btn">Clear</button></div></section>
+        <section><h4 class="text-sm font-semibold text-white mb-2">Document checklist</h4><div id="document-checklist" class="space-y-2"></div><div class="flex gap-2 mt-2"><input id="new-document-label" class="login-input flex-1 !py-2" maxlength="160" placeholder="Add a requested document" /><button onclick="addDocumentItem()" class="mini-action-btn">Add</button></div></section>
+        <section><h4 class="text-sm font-semibold text-white mb-2">Escalation</h4><div class="flex gap-2"><input id="escalation-reason" class="login-input flex-1 !py-2" maxlength="1000" placeholder="Reason for supervisor review" /><button onclick="saveEscalation()" class="mini-action-btn !border-rose-400/30 !text-rose-300">Escalate</button><button onclick="clearEscalation()" class="mini-action-btn">Clear</button></div></section>
+        <section><h4 class="text-sm font-semibold text-white mb-2">Audit timeline</h4><div id="audit-trail" class="space-y-2 text-xs"></div></section>
+      </div>
     </div>
   </div>
 

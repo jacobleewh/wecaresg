@@ -13,18 +13,33 @@ const state = {
   incomingRequests: [],
   outgoingRequests: [],
 };
+let activeSelectedCaseId = null;
 
 const VULN_RING_CIRCUMFERENCE = 163; // 2 * PI * r(26), matches the compact SVG ring in each card
 
 document.addEventListener("DOMContentLoaded", async () => {
   updateSoundIcon();
   await loadOwnWorkerInfo();
+  populateReplyTemplates();
   loadHistoricalCases();
+  loadDashboardSummary();
   connectStream();
   loadColleagues();
   loadIncomingRequests();
   setInterval(loadIncomingRequests, 20000);
 });
+
+async function loadDashboardSummary() {
+  try {
+    const res = await fetch("/api/worker/dashboard");
+    if (!res.ok) return;
+    const summary = await res.json();
+    document.getElementById("stat-unclaimed").textContent = summary.unclaimed;
+    document.getElementById("stat-active").textContent = summary.my_active;
+    document.getElementById("stat-due").textContent = summary.due;
+    document.getElementById("stat-escalated").textContent = summary.escalated;
+  } catch (err) { console.error("Failed to load dashboard summary", err); }
+}
 
 // ---------------------------------------------------------------------
 // Historical cases + live SSE stream
@@ -95,6 +110,8 @@ function addCaseToFeed(record, { animate }) {
   feed.prepend(card);
 
   updateCaseCountBadge();
+  applyCaseFilters();
+  loadDashboardSummary();
   if (record.channel === "telegram") {
     flashTelegramPill();
   }
@@ -192,6 +209,7 @@ function buildCaseCard(record, animate) {
         <i data-lucide="clipboard-copy" class="w-3.5 h-3.5"></i>Referral
       </button>
       ${record.assigned_worker_id === state.ownWorkerId ? `<button onclick="openFollowUpModal('${record.case_id}')" class="mini-action-btn mini-action-btn--emerald"><i data-lucide="message-square-plus" class="w-3.5 h-3.5"></i>Follow up</button>` : ""}
+      ${record.assigned_worker_id === state.ownWorkerId ? `<button onclick="openWorkboardModal('${record.case_id}')" class="mini-action-btn"><i data-lucide="list-checks" class="w-3.5 h-3.5"></i>Workboard</button>` : ""}
       <button onclick="openReferModal('${record.case_id}')" class="mini-action-btn">
         <i data-lucide="send-to-back" class="w-3.5 h-3.5"></i>${record.assigned_worker_id === state.ownWorkerId ? "Refer" : "Referred: " + escapeHtml(record.assigned_worker_name)}
       </button>
@@ -441,6 +459,68 @@ function openFollowUpModal(caseId) {
   document.getElementById("follow-up-document").value = "";
   openModal("follow-up-modal");
 }
+
+function replyTemplates() {
+  const saved = JSON.parse(localStorage.getItem("wecaresg_worker_reply_templates") || "[]");
+  return [
+    { name: "Request documents", text: "Thank you for your submission. Please upload your income and household documents when you can, so we can review the next steps." },
+    { name: "Appointment confirmed", text: "Your appointment has been confirmed. Please bring your identification and the requested supporting documents." },
+    { name: "Application update", text: "We have reviewed your update. Please complete the relevant application and let us know if you need help with the next step." },
+    ...saved,
+  ];
+}
+function populateReplyTemplates() {
+  const select = document.getElementById("reply-template-select"); if (!select) return;
+  select.innerHTML = '<option value="">Quick reply template…</option>' + replyTemplates().map((item, index) => `<option value="${index}">${escapeHtml(item.name)}</option>`).join("");
+}
+function applyReplyTemplate() { const select=document.getElementById("reply-template-select"); const template=replyTemplates()[Number(select.value)]; if(template) document.getElementById("follow-up-note").value=template.text; }
+function saveReplyTemplate() { const text=document.getElementById("follow-up-note").value.trim(); if(!text) return showToast("Write a message before saving a template.", true); const name=window.prompt("Template name:"); if(!name?.trim()) return; const saved=JSON.parse(localStorage.getItem("wecaresg_worker_reply_templates") || "[]"); saved.push({name:name.trim().slice(0,60),text}); localStorage.setItem("wecaresg_worker_reply_templates",JSON.stringify(saved.slice(-20))); populateReplyTemplates(); showToast("Quick reply template saved."); }
+
+function applyCaseFilters() {
+  const query = (document.getElementById("case-search")?.value || "").toLowerCase();
+  const queue = document.getElementById("case-queue-filter")?.value || "all";
+  document.querySelectorAll("#case-feed .case-card").forEach((card) => {
+    const record = state.casesById.get(card.dataset.caseId); if (!record) return;
+    const text = [record.case_id, record.citizen_name, record.raw_text, record.status, ...(record.profile?.needs_tags || [])].join(" ").toLowerCase();
+    const due = record.next_action_at && new Date(record.next_action_at) <= new Date();
+    const matches = queue === "all" || (queue === "unclaimed" && !record.assigned_worker_id) || (queue === "mine" && record.assigned_worker_id === state.ownWorkerId) || (queue === "due" && due) || (queue === "escalated" && record.escalation_reason) || (queue === "high" && record.urgency === "High");
+    card.classList.toggle("hidden", !text.includes(query) || !matches);
+  });
+}
+
+function openWorkboardModal(caseId) {
+  const record = state.casesById.get(caseId);
+  if (!record || record.assigned_worker_id !== state.ownWorkerId) { showToast("Accept a case before opening its workboard.", true); return; }
+  activeSelectedCaseId = caseId;
+  if (!(record.document_checklist || []).length) {
+    record.document_checklist = [...new Set((record.matched_schemes || []).flatMap((scheme) => scheme.documents_required || []))].slice(0, 12).map((label) => ({ label, status: "Pending" }));
+  }
+  document.getElementById("workboard-case-label").textContent = `${record.case_id} · ${record.citizen_name || "Citizen"}`;
+  document.getElementById("next-action-input").value = record.next_action_at ? new Date(new Date(record.next_action_at).getTime() - new Date(record.next_action_at).getTimezoneOffset() * 60000).toISOString().slice(0, 16) : "";
+  document.getElementById("escalation-reason").value = record.escalation_reason || "";
+  renderWorkboard(record); openModal("workboard-modal");
+}
+
+function renderWorkboard(record) {
+  document.getElementById("private-notes-list").innerHTML = (record.private_notes || []).map(note => `<div class="rounded-lg bg-white/5 border border-white/10 p-2 text-xs"><p class="text-slate-200 whitespace-pre-wrap">${escapeHtml(note.note)}</p><p class="text-slate-500 mt-1">${escapeHtml(note.worker_name)} · ${new Date(note.created_at).toLocaleString()}</p></div>`).join("") || '<p class="text-xs text-slate-500">No private notes yet.</p>';
+  document.getElementById("document-checklist").innerHTML = (record.document_checklist || []).map((item, i) => `<div class="flex gap-2 items-center"><select class="login-input !py-1.5 !w-28" onchange="setDocumentStatus(${i},this.value)"><option ${item.status === "Pending" ? "selected" : ""}>Pending</option><option ${item.status === "Received" ? "selected" : ""}>Received</option><option ${item.status === "Verified" ? "selected" : ""}>Verified</option></select><span class="flex-1 text-xs text-slate-300">${escapeHtml(item.label)}</span><button class="text-slate-500 hover:text-rose-300" onclick="removeDocumentItem(${i})">×</button></div>`).join("") || '<p class="text-xs text-slate-500">No documents requested yet.</p>';
+  document.getElementById("audit-trail").innerHTML = (record.audit_trail || []).slice(0, 12).map(log => `<div class="flex justify-between gap-3 border-l border-white/10 pl-3"><span class="text-slate-300">${escapeHtml(log.action.replaceAll("_", " "))}</span><span class="text-slate-500 whitespace-nowrap">${new Date(log.created_at).toLocaleString()}</span></div>`).join("") || '<p class="text-slate-500">No activity recorded.</p>';
+}
+
+async function saveWorkboard(endpoint, options) {
+  const res = await fetch(`/api/cases/${activeSelectedCaseId}/${endpoint}`, options); const record = await res.json();
+  if (!res.ok) throw new Error(record.error || "Could not save this update.");
+  state.casesById.set(record.case_id, record); document.querySelector(`[data-case-id="${record.case_id}"]`)?.replaceWith(buildCaseCard(record, false)); renderWorkboard(record); loadDashboardSummary(); lucide.createIcons(); return record;
+}
+async function addPrivateNote(event) { event.preventDefault(); const input=document.getElementById("private-note-input"); if (!input.value.trim()) return false; try { await saveWorkboard("notes", {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({note:input.value.trim()})}); input.value=""; showToast("Private note saved."); } catch(err) { showToast(err.message,true); } return false; }
+async function saveNextAction() { try { await saveWorkboard("next-action", {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({next_action_at:document.getElementById("next-action-input").value})}); showToast("Reminder saved."); } catch(err) { showToast(err.message,true); } }
+async function clearNextAction() { document.getElementById("next-action-input").value=""; await saveNextAction(); }
+async function saveEscalation() { const reason=document.getElementById("escalation-reason").value.trim(); if(!reason) return showToast("Add an escalation reason.",true); try { await saveWorkboard("escalation", {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({reason})}); showToast("Case flagged for supervisor review."); } catch(err) { showToast(err.message,true); } }
+async function clearEscalation() { document.getElementById("escalation-reason").value=""; try { await saveWorkboard("escalation", {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({reason:""})}); showToast("Escalation cleared."); } catch(err) { showToast(err.message,true); } }
+async function saveChecklist() { const record=state.casesById.get(activeSelectedCaseId); try { await saveWorkboard("documents", {method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({items:record.document_checklist || []})}); } catch(err) { showToast(err.message,true); } }
+function setDocumentStatus(index,status) { state.casesById.get(activeSelectedCaseId).document_checklist[index].status=status; saveChecklist(); }
+function removeDocumentItem(index) { state.casesById.get(activeSelectedCaseId).document_checklist.splice(index,1); saveChecklist(); }
+function addDocumentItem() { const input=document.getElementById("new-document-label"),label=input.value.trim(); if(!label)return; const record=state.casesById.get(activeSelectedCaseId); record.document_checklist=record.document_checklist || []; record.document_checklist.push({label,status:"Pending"}); input.value=""; saveChecklist(); }
 
 async function sendFollowUp(event) {
   event.preventDefault();

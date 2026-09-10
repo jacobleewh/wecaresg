@@ -36,6 +36,8 @@ from sqlalchemy import (
     UniqueConstraint,
     create_engine,
     event,
+    inspect,
+    text,
 )
 from sqlalchemy.orm import declarative_base, relationship, sessionmaker
 from werkzeug.security import check_password_hash, generate_password_hash
@@ -93,6 +95,9 @@ class Case(Base):
     referral_summary = Column(Text, nullable=False, default="")
     patient_summary = Column(Text, nullable=False, default="")
     assigned_worker_id = Column(String, ForeignKey("case_workers.id"), nullable=True)
+    next_action_at = Column(DateTime, nullable=True)
+    escalation_reason = Column(Text, nullable=False, default="")
+    escalated_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
 
@@ -104,6 +109,8 @@ class Case(Base):
     gaps = relationship("UnmetGap", back_populates="case", cascade="all, delete-orphan")
     audit_logs = relationship("CaseAuditLog", back_populates="case", cascade="all, delete-orphan")
     follow_ups = relationship("CaseFollowUp", back_populates="case", cascade="all, delete-orphan")
+    worker_notes = relationship("WorkerCaseNote", back_populates="case", cascade="all, delete-orphan")
+    document_items = relationship("CaseDocumentItem", back_populates="case", cascade="all, delete-orphan")
     assigned_worker = relationship("CaseWorker", foreign_keys=[assigned_worker_id])
 
 
@@ -186,6 +193,37 @@ class CaseFollowUp(Base):
     worker = relationship("CaseWorker", foreign_keys=[worker_id])
 
 
+class WorkerCaseNote(Base):
+    """Private operational notes. These are never returned to citizen APIs."""
+
+    __tablename__ = "worker_case_notes"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    case_id = Column(String, ForeignKey("cases.id"), nullable=False)
+    worker_id = Column(String, ForeignKey("case_workers.id"), nullable=False)
+    note = Column(Text, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+    case = relationship("Case", back_populates="worker_notes")
+    worker = relationship("CaseWorker", foreign_keys=[worker_id])
+
+
+class CaseDocumentItem(Base):
+    """Worker-managed checklist for documents requested for a case."""
+
+    __tablename__ = "case_document_items"
+    __table_args__ = (UniqueConstraint("case_id", "label", name="uq_case_document_label"),)
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    case_id = Column(String, ForeignKey("cases.id"), nullable=False)
+    label = Column(String, nullable=False)
+    status = Column(String, nullable=False, default="Pending")
+    updated_by = Column(String, ForeignKey("case_workers.id"), nullable=True)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+
+    case = relationship("Case", back_populates="document_items")
+
+
 class CaseWorker(Base):
     __tablename__ = "case_workers"
 
@@ -228,6 +266,15 @@ class ColleagueRequest(Base):
 
 def init_db():
     Base.metadata.create_all(engine)
+    # Lightweight migrations keep existing demo databases compatible.
+    columns = {column["name"] for column in inspect(engine).get_columns("cases")}
+    with engine.begin() as connection:
+        if "next_action_at" not in columns:
+            connection.execute(text("ALTER TABLE cases ADD COLUMN next_action_at DATETIME"))
+        if "escalation_reason" not in columns:
+            connection.execute(text("ALTER TABLE cases ADD COLUMN escalation_reason TEXT NOT NULL DEFAULT ''"))
+        if "escalated_at" not in columns:
+            connection.execute(text("ALTER TABLE cases ADD COLUMN escalated_at DATETIME"))
     _seed_default_worker()
 
 
@@ -418,9 +465,9 @@ def get_cases_for_citizen(citizen_id: str, limit: int = 20) -> list:
 # ---------------------------------------------------------------------------
 # Hydration: ORM rows -> the JSON contract shared by app.py / bot_service.py / app.js
 # ---------------------------------------------------------------------------
-def _hydrate_case(case: Case) -> dict:
+def _hydrate_case(case: Case, include_worker_tools: bool = False) -> dict:
     profile = case.profile
-    return {
+    record = {
         "case_id": case.id,
         "citizen_id": case.citizen_id,
         "timestamp": case.created_at.isoformat(),
@@ -475,6 +522,25 @@ def _hydrate_case(case: Case) -> dict:
             for update in sorted(case.follow_ups, key=lambda item: item.created_at, reverse=True)
         ],
     }
+    if include_worker_tools:
+        record.update({
+            "next_action_at": case.next_action_at.isoformat() if case.next_action_at else None,
+            "escalation_reason": case.escalation_reason or "",
+            "escalated_at": case.escalated_at.isoformat() if case.escalated_at else None,
+            "private_notes": [
+                {"id": note.id, "note": note.note, "worker_name": note.worker.display_name if note.worker else "Case worker", "created_at": note.created_at.isoformat()}
+                for note in sorted(case.worker_notes, key=lambda item: item.created_at, reverse=True)
+            ],
+            "document_checklist": [
+                {"id": item.id, "label": item.label, "status": item.status, "updated_at": item.updated_at.isoformat()}
+                for item in sorted(case.document_items, key=lambda item: item.label.lower())
+            ],
+            "audit_trail": [
+                {"id": log.id, "actor": log.actor, "action": log.action, "created_at": log.created_at.isoformat()}
+                for log in sorted(case.audit_logs, key=lambda item: item.created_at, reverse=True)
+            ],
+        })
+    return record
 
 
 # ---------------------------------------------------------------------------
@@ -552,11 +618,11 @@ def save_full_case(payload: dict, channel: str, citizen_id: str) -> str:
         session.close()
 
 
-def get_case(case_id: str):
+def get_case(case_id: str, include_worker_tools: bool = False):
     session = SessionLocal()
     try:
         case = session.query(Case).filter_by(id=case_id).first()
-        return _hydrate_case(case) if case else None
+        return _hydrate_case(case, include_worker_tools=include_worker_tools) if case else None
     finally:
         session.close()
 
@@ -583,7 +649,7 @@ def create_case_follow_up(case_id: str, worker_id: str, note: str, document: dic
         session.add(update)
         session.add(CaseAuditLog(case_id=case_id, actor=worker_id, action="follow_up_sent"))
         session.commit()
-        return _hydrate_case(case)
+        return _hydrate_case(case, include_worker_tools=True)
     except Exception:
         session.rollback()
         raise
@@ -635,7 +701,7 @@ def get_recent_cases(limit: int = 20) -> list:
         session.close()
 
 
-def get_recent_cases_for_worker(worker_id: str, limit: int = 20) -> list:
+def get_recent_cases_for_worker(worker_id: str, limit: int = 100) -> list:
     """Same as get_recent_cases(), but only returns cases that are either
     unclaimed or already accepted by this specific worker — once a colleague
     accepts a case, it's excluded here entirely. Reviewed cases are excluded
@@ -652,7 +718,7 @@ def get_recent_cases_for_worker(worker_id: str, limit: int = 20) -> list:
             .limit(limit)
             .all()
         )
-        return [_hydrate_case(c) for c in cases]
+        return [_hydrate_case(c, include_worker_tools=True) for c in cases]
     finally:
         session.close()
 
@@ -668,22 +734,129 @@ def get_reviewed_cases_for_worker(worker_id: str, limit: int = 50) -> list:
             .limit(limit)
             .all()
         )
-        return [_hydrate_case(c) for c in cases]
+        return [_hydrate_case(c, include_worker_tools=True) for c in cases]
     finally:
         session.close()
 
 
-def update_case_status(case_id: str, new_status: str, actor: str):
+def update_case_status(case_id: str, new_status: str, actor: str, worker_id: str | None = None):
     session = SessionLocal()
     try:
         case = session.query(Case).filter_by(id=case_id).first()
         if not case:
             return None
+        if worker_id and case.assigned_worker_id != worker_id:
+            raise PermissionError("Accept this case before changing its status.")
         case.status = new_status
         case.updated_at = datetime.utcnow()
         session.add(CaseAuditLog(case_id=case_id, actor=actor, action=f"status_changed_to_{new_status}"))
         session.commit()
-        return _hydrate_case(case)
+        return _hydrate_case(case, include_worker_tools=True)
+    finally:
+        session.close()
+
+
+def _owned_case(session, case_id: str, worker_id: str):
+    case = session.query(Case).filter_by(id=case_id).first()
+    if not case:
+        return None
+    if case.assigned_worker_id != worker_id:
+        raise PermissionError("Accept this case before making worker-only updates.")
+    return case
+
+
+def add_private_note(case_id: str, worker_id: str, note: str) -> dict | None:
+    session = SessionLocal()
+    try:
+        case = _owned_case(session, case_id, worker_id)
+        if not case:
+            return None
+        session.add(WorkerCaseNote(case_id=case_id, worker_id=worker_id, note=note))
+        session.add(CaseAuditLog(case_id=case_id, actor=worker_id, action="private_note_added"))
+        session.commit()
+        return _hydrate_case(case, include_worker_tools=True)
+    except Exception:
+        session.rollback()
+        raise
+    finally:
+        session.close()
+
+
+def set_next_action(case_id: str, worker_id: str, next_action_at: datetime | None) -> dict | None:
+    session = SessionLocal()
+    try:
+        case = _owned_case(session, case_id, worker_id)
+        if not case:
+            return None
+        case.next_action_at = next_action_at
+        session.add(CaseAuditLog(case_id=case_id, actor=worker_id, action="next_action_set" if next_action_at else "next_action_cleared"))
+        session.commit()
+        return _hydrate_case(case, include_worker_tools=True)
+    except Exception:
+        session.rollback()
+        raise
+    finally:
+        session.close()
+
+
+def set_escalation(case_id: str, worker_id: str, reason: str) -> dict | None:
+    session = SessionLocal()
+    try:
+        case = _owned_case(session, case_id, worker_id)
+        if not case:
+            return None
+        case.escalation_reason = reason
+        case.escalated_at = datetime.utcnow() if reason else None
+        session.add(CaseAuditLog(case_id=case_id, actor=worker_id, action="case_escalated" if reason else "escalation_cleared"))
+        session.commit()
+        return _hydrate_case(case, include_worker_tools=True)
+    except Exception:
+        session.rollback()
+        raise
+    finally:
+        session.close()
+
+
+def replace_document_checklist(case_id: str, worker_id: str, items: list[dict]) -> dict | None:
+    session = SessionLocal()
+    try:
+        case = _owned_case(session, case_id, worker_id)
+        if not case:
+            return None
+        session.query(CaseDocumentItem).filter_by(case_id=case_id).delete()
+        for item in items:
+            label = str(item.get("label", "")).strip()[:160]
+            status = str(item.get("status", "Pending")).strip()
+            if label and status in {"Pending", "Received", "Verified"}:
+                session.add(CaseDocumentItem(case_id=case_id, label=label, status=status, updated_by=worker_id))
+        session.add(CaseAuditLog(case_id=case_id, actor=worker_id, action="document_checklist_updated"))
+        session.commit()
+        return _hydrate_case(case, include_worker_tools=True)
+    except Exception:
+        session.rollback()
+        raise
+    finally:
+        session.close()
+
+
+def get_worker_dashboard_summary(worker_id: str) -> dict:
+    """Counts and upcoming actions for the signed-in worker's own workload."""
+    session = SessionLocal()
+    try:
+        now = datetime.utcnow()
+        mine = session.query(Case).filter_by(assigned_worker_id=worker_id).all()
+        active = [case for case in mine if case.status != "Reviewed"]
+        due = [case for case in active if case.next_action_at and case.next_action_at <= now]
+        upcoming = sorted(
+            [case for case in active if case.next_action_at], key=lambda case: case.next_action_at
+        )[:5]
+        return {
+            "unclaimed": session.query(Case).filter(Case.assigned_worker_id.is_(None), Case.status != "Reviewed").count(),
+            "my_active": len(active),
+            "due": len(due),
+            "escalated": sum(bool(case.escalation_reason) for case in active),
+            "upcoming": [{"case_id": case.id, "citizen_name": case.citizen.display_name if case.citizen else "Citizen", "next_action_at": case.next_action_at.isoformat(), "escalated": bool(case.escalation_reason)} for case in upcoming],
+        }
     finally:
         session.close()
 
@@ -877,7 +1050,7 @@ def refer_case(case_id: str, colleague_id: str, actor: str):
             CaseAuditLog(case_id=case_id, actor=actor, action=f"referred_to_{colleague.display_name}")
         )
         session.commit()
-        return _hydrate_case(case)
+        return _hydrate_case(case, include_worker_tools=True)
     finally:
         session.close()
 
@@ -905,7 +1078,7 @@ def accept_case(case_id: str, worker_id: str, actor: str):
         case.updated_at = datetime.utcnow()
         session.add(CaseAuditLog(case_id=case_id, actor=actor, action="accepted_case"))
         session.commit()
-        return _hydrate_case(case)
+        return _hydrate_case(case, include_worker_tools=True)
     finally:
         session.close()
 

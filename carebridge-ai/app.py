@@ -30,6 +30,7 @@ import math
 import os
 import re
 import uuid
+from datetime import datetime
 from pathlib import Path
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
@@ -429,7 +430,7 @@ def api_cases():
     everyone) plus cases already claimed by this worker specifically. Once
     another worker accepts a case, it stops appearing here. Reviewed cases
     are excluded — see /api/cases/reviewed for those."""
-    limit = request.args.get("limit", default=20, type=int)
+    limit = min(request.args.get("limit", default=100, type=int), 200)
     return jsonify(database.get_recent_cases_for_worker(session["worker_id"], limit=limit))
 
 
@@ -443,8 +444,10 @@ def api_reviewed_cases():
 @app.route("/api/cases/<case_id>", methods=["GET"])
 @worker_required
 def api_case_detail(case_id):
-    record = database.get_case(case_id)
+    record = database.get_case(case_id, include_worker_tools=True)
     if not record:
+        return jsonify({"error": "Case not found."}), 404
+    if record["assigned_worker_id"] and record["assigned_worker_id"] != session["worker_id"]:
         return jsonify({"error": "Case not found."}), 404
     return jsonify(record)
 
@@ -459,12 +462,85 @@ def api_update_case_status(case_id):
     if not new_status:
         return jsonify({"error": "status is required."}), 400
 
-    record = database.update_case_status(case_id, new_status, actor)
+    try:
+        record = database.update_case_status(case_id, new_status, actor, session["worker_id"])
+    except PermissionError as exc:
+        return jsonify({"error": str(exc)}), 403
     if not record:
         return jsonify({"error": "Case not found."}), 404
 
     database.publish_case(record)
     bot_service.notify_citizen_of_case_update(record, "status")
+    return jsonify(record)
+
+
+@app.route("/api/worker/dashboard", methods=["GET"])
+@worker_required
+def api_worker_dashboard():
+    return jsonify(database.get_worker_dashboard_summary(session["worker_id"]))
+
+
+@app.route("/api/cases/<case_id>/notes", methods=["POST"])
+@worker_required
+def api_add_private_note(case_id):
+    note = ((request.get_json(silent=True) or {}).get("note") or "").strip()
+    if not note:
+        return jsonify({"error": "A private note is required."}), 400
+    try:
+        record = database.add_private_note(case_id, session["worker_id"], note[:4000])
+    except PermissionError as exc:
+        return jsonify({"error": str(exc)}), 403
+    if not record:
+        return jsonify({"error": "Case not found."}), 404
+    database.publish_case(record)
+    return jsonify(record)
+
+
+@app.route("/api/cases/<case_id>/next-action", methods=["POST"])
+@worker_required
+def api_set_next_action(case_id):
+    value = ((request.get_json(silent=True) or {}).get("next_action_at") or "").strip()
+    try:
+        next_action = datetime.fromisoformat(value) if value else None
+    except ValueError:
+        return jsonify({"error": "Use a valid date and time."}), 400
+    try:
+        record = database.set_next_action(case_id, session["worker_id"], next_action)
+    except PermissionError as exc:
+        return jsonify({"error": str(exc)}), 403
+    if not record:
+        return jsonify({"error": "Case not found."}), 404
+    database.publish_case(record)
+    return jsonify(record)
+
+
+@app.route("/api/cases/<case_id>/escalation", methods=["POST"])
+@worker_required
+def api_set_escalation(case_id):
+    reason = ((request.get_json(silent=True) or {}).get("reason") or "").strip()
+    try:
+        record = database.set_escalation(case_id, session["worker_id"], reason[:1000])
+    except PermissionError as exc:
+        return jsonify({"error": str(exc)}), 403
+    if not record:
+        return jsonify({"error": "Case not found."}), 404
+    database.publish_case(record)
+    return jsonify(record)
+
+
+@app.route("/api/cases/<case_id>/documents", methods=["PUT"])
+@worker_required
+def api_update_document_checklist(case_id):
+    items = (request.get_json(silent=True) or {}).get("items")
+    if not isinstance(items, list) or len(items) > 30:
+        return jsonify({"error": "Provide up to 30 document checklist items."}), 400
+    try:
+        record = database.replace_document_checklist(case_id, session["worker_id"], items)
+    except PermissionError as exc:
+        return jsonify({"error": str(exc)}), 403
+    if not record:
+        return jsonify({"error": "Case not found."}), 404
+    database.publish_case(record)
     return jsonify(record)
 
 
