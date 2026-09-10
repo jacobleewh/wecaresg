@@ -71,6 +71,18 @@
         </div>
       </div>
 
+      <section class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5" aria-label="Your workload summary">
+        <div class="rounded-xl border border-white/10 bg-white/[0.03] p-3"><p class="text-[10px] uppercase tracking-widest text-slate-500">Unclaimed</p><p id="stat-unclaimed" class="text-2xl font-bold text-white mt-1">&mdash;</p></div>
+        <div class="rounded-xl border border-white/10 bg-white/[0.03] p-3"><p class="text-[10px] uppercase tracking-widest text-slate-500">My active</p><p id="stat-active" class="text-2xl font-bold text-emerald-300 mt-1">&mdash;</p></div>
+        <div class="rounded-xl border border-amber-400/20 bg-amber-400/5 p-3"><p class="text-[10px] uppercase tracking-widest text-amber-300">Due now</p><p id="stat-due" class="text-2xl font-bold text-amber-300 mt-1">&mdash;</p></div>
+        <div class="rounded-xl border border-rose-400/20 bg-rose-400/5 p-3"><p class="text-[10px] uppercase tracking-widest text-rose-300">Escalated</p><p id="stat-escalated" class="text-2xl font-bold text-rose-300 mt-1">&mdash;</p></div>
+      </section>
+
+      <div class="flex flex-wrap gap-2 mb-5">
+        <input id="case-search" type="search" class="login-input !py-2 flex-1 min-w-[190px]" placeholder="Search case, citizen, need or status" oninput="applyCaseFilters()" />
+        <select id="case-queue-filter" class="login-input !py-2 !w-auto" onchange="applyCaseFilters()"><option value="all">All active</option><option value="unclaimed">Unclaimed</option><option value="mine">Assigned to me</option><option value="due">Due follow-ups</option><option value="escalated">Escalated</option><option value="high">High urgency</option></select>
+      </div>
+
       <div id="hub-empty" class="flex-1 flex flex-col items-center justify-center text-center text-slate-500 gap-3 border-2 border-dashed border-white/10 rounded-2xl">
         <div class="radar-orb"><i data-lucide="radar" class="w-7 h-7 text-violet-300"></i></div>
         <p class="text-sm max-w-xs">Waiting for citizens to submit via web chat or the Telegram bot &mdash; cases will appear here live.</p>
@@ -100,18 +112,6 @@
         <button onclick="closeModal('follow-up-modal')" class="modal-close">&times;</button>
       </div>
 
-      <section class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5" aria-label="Your workload summary">
-        <div class="rounded-xl border border-white/10 bg-white/[0.03] p-3"><p class="text-[10px] uppercase tracking-widest text-slate-500">Unclaimed</p><p id="stat-unclaimed" class="text-2xl font-bold text-white mt-1">—</p></div>
-        <div class="rounded-xl border border-white/10 bg-white/[0.03] p-3"><p class="text-[10px] uppercase tracking-widest text-slate-500">My active</p><p id="stat-active" class="text-2xl font-bold text-emerald-300 mt-1">—</p></div>
-        <div class="rounded-xl border border-amber-400/20 bg-amber-400/5 p-3"><p class="text-[10px] uppercase tracking-widest text-amber-300">Due now</p><p id="stat-due" class="text-2xl font-bold text-amber-300 mt-1">—</p></div>
-        <div class="rounded-xl border border-rose-400/20 bg-rose-400/5 p-3"><p class="text-[10px] uppercase tracking-widest text-rose-300">Escalated</p><p id="stat-escalated" class="text-2xl font-bold text-rose-300 mt-1">—</p></div>
-      </section>
-
-      <div class="flex flex-wrap gap-2 mb-5">
-        <input id="case-search" type="search" class="login-input !py-2 flex-1 min-w-[190px]" placeholder="Search case, citizen, need or status" oninput="applyCaseFilters()" />
-        <select id="case-queue-filter" class="login-input !py-2 !w-auto" onchange="applyCaseFilters()"><option value="all">All active</option><option value="unclaimed">Unclaimed</option><option value="mine">Assigned to me</option><option value="due">Due follow-ups</option><option value="escalated">Escalated</option><option value="high">High urgency</option></select>
-        <button onclick="openWorkboardModal(activeSelectedCaseId || [...state.casesById.keys()][0])" class="mini-action-btn"><i data-lucide="list-checks" class="w-3.5 h-3.5"></i>Workboard</button>
-      </div>
       <form id="follow-up-form" onsubmit="return sendFollowUp(event)" class="modal-body space-y-4">
         <p id="follow-up-case-label" class="text-xs text-slate-400"></p>
         <div class="flex gap-2"><select id="reply-template-select" class="login-input flex-1 !py-2" onchange="applyReplyTemplate()"><option value="">Quick reply template…</option></select><button type="button" onclick="saveReplyTemplate()" class="mini-action-btn" title="Save the current message as a reusable template">Save template</button></div>
