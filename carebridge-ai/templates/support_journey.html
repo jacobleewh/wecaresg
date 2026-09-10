@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block title %}Support Journey | WeCareSG{% endblock %}
+{% block extra_head %}<style>.channel-pill[aria-current="page"]{color:#34d399;border-color:#34d399}.journey-dot{width:12px;height:12px;border-radius:999px;background:#334155}.journey-dot--done{background:#34d399}.journey-dot--current{background:#fbbf24;box-shadow:0 0 0 5px rgba(251,191,36,.12)}</style>{% endblock %}
+{% block body %}
+{% include "_citizen_nav.html" %}
+<main class="flex-1 max-w-[1200px] w-full mx-auto px-6 py-8">
+  <div class="mb-7"><p class="section-eyebrow">Stay on track</p><h1 class="font-display text-3xl text-white mb-2">Your Support Journey</h1><p class="text-sm text-slate-400 max-w-2xl">See what happens next, prepare common documents, and move from a recommendation to an application at your own pace.</p></div>
+  <div id="journey-empty" class="glass-card p-8 text-center text-slate-400"><i data-lucide="compass" class="w-8 h-8 text-emerald-300 mx-auto mb-3"></i><p class="font-semibold text-white">No support journey yet</p><p class="text-sm mt-2">Submit a case from Chat and your next steps will appear here.</p><a href="{{ url_for('citizen_dashboard') }}" class="mini-action-btn mt-5 inline-flex">Open Chat</a></div>
+  <div id="journey-content" class="hidden grid grid-cols-1 lg:grid-cols-5 gap-6">
+    <section class="glass-card p-6 lg:col-span-3"><div class="flex justify-between gap-3 mb-5"><div><h2 class="text-xl font-bold text-white">Case timeline</h2><p id="journey-case-label" class="text-sm text-slate-400 mt-1"></p></div><select id="journey-case-select" class="intake-textarea !min-h-0 !w-auto text-sm"></select></div><div id="journey-timeline" class="space-y-0"></div><div id="journey-worker-update" class="mt-6"></div></section>
+    <aside class="space-y-6 lg:col-span-2"><section class="glass-card card-accent card-accent--emerald p-6"><h2 class="text-lg font-bold text-white">Application checklist</h2><p class="text-xs text-slate-400 mt-1 mb-4">Use these links when you are ready. Eligibility is decided by the relevant agency.</p><div id="journey-actions" class="space-y-3"></div></section><section class="glass-card p-6"><h2 class="text-lg font-bold text-white">Documents to prepare</h2><p class="text-xs text-slate-400 mt-1 mb-4">Keep copies ready before an application or follow-up.</p><div id="journey-documents" class="space-y-3"></div></section></aside>
+  </div>
+</main>
+{% endblock %}
+{% block extra_scripts %}<script src="{{ url_for('static', filename='js/support-journey.js') }}"></script>{% endblock %}
