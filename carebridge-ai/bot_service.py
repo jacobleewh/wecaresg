@@ -209,15 +209,45 @@ def _rebuild_pending_payload(session: dict, source_text: str = None):
 # Message formatting
 # ---------------------------------------------------------------------------
 def _format_submission_confirmation(record: dict) -> str:
-    """The formal, high-trust closing message shown right after a case is persisted."""
+    """A calm, easy-to-scan receipt shown right after submission."""
     emoji = URGENCY_EMOJI.get(record.get("urgency", "Low"), "\U0001F7E2")
     return (
-        f"{emoji} *{record.get('urgency', 'Low')} Urgency*  \u00b7  Vulnerability Score "
-        f"*{record.get('vulnerability_score', 0)}/100*\n\n"
-        "\u2705 *Case logged & securely submitted to your assigned Family Service Centre (FSC).*\n\n"
-        f"*Case ID:* `{record['case_id']}`\n\n"
-        "Use /view_case anytime to see this case again, or /start_new to submit another situation."
+        "<b>✓ Your case has been submitted</b>\n\n"
+        f"<b>Reference:</b> <code>{html.escape(record['case_id'])}</code>\n"
+        f"<b>Current priority:</b> {emoji} {html.escape(record.get('urgency', 'Low'))}\n"
+        f"<b>Status:</b> {html.escape(record.get('status', 'New'))}\n\n"
+        "A case worker can now review the information you shared. You will receive updates here when your case changes.\n\n"
+        "Your case summary is below. You can return to it anytime from <b>My Cases</b>."
     )
+
+
+def _case_summary_markdown(record: dict) -> str:
+    """A concise, consistent citizen-facing summary for Telegram."""
+    emoji = URGENCY_EMOJI.get(record.get("urgency", "Low"), "🟢")
+    lines = [
+        "### Your Case Summary",
+        f"- **Case reference:** {record['case_id']}",
+        f"- **Status:** {record.get('status', 'New')}",
+        f"- **Priority:** {emoji} {record.get('urgency', 'Low')}",
+    ]
+    schemes = record.get("matched_schemes") or []
+    if schemes:
+        lines.extend(["", "### Possible Support Options"])
+        for scheme in schemes[:4]:
+            lines.append(f"- **{scheme['short_name']}** — {scheme.get('summary') or 'Review with the administering agency.'}")
+    gaps = record.get("gaps") or []
+    if gaps:
+        lines.extend(["", "### Things to Follow Up"])
+        lines.extend(f"- {gap}" for gap in gaps[:3])
+    follow_ups = record.get("follow_ups") or []
+    if follow_ups:
+        lines.extend(["", "### Latest Worker Update"])
+        latest = follow_ups[0]
+        lines.append(f"- **{latest.get('worker_name', 'Case worker')}:** {latest.get('note') or 'A document was shared.'}")
+        if latest.get("has_document"):
+            lines.append("- A document is available in your WeCareSG website case history.")
+    lines.extend(["", "_These are possible support options, not confirmation of eligibility. The relevant agency will assess your circumstances._"])
+    return "\n".join(lines)
 
 
 def _format_case_recap(record: dict) -> str:
@@ -253,7 +283,9 @@ def _post_submit_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         [
             [InlineKeyboardButton("\U0001F50D View Case", callback_data="view_case")],
+            [InlineKeyboardButton("\U0001F4CB My Cases", callback_data="show_cases")],
             [InlineKeyboardButton("\U0001F504 Start New", callback_data="start_new_triage")],
+            [InlineKeyboardButton("\U0001F6AA Log Out", callback_data="logout")],
         ]
     )
 
@@ -297,7 +329,11 @@ def _welcome_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         [
             [InlineKeyboardButton("\U0001F9ED Begin Guided Triage", callback_data="begin_triage")],
-            [InlineKeyboardButton("\U0001F4CB Try a demo scenario", callback_data="demo_menu")],
+            [
+                InlineKeyboardButton("\U0001F4CB My Cases", callback_data="show_cases"),
+                InlineKeyboardButton("\U0001F9EA Try a Demo", callback_data="demo_menu"),
+            ],
+            [InlineKeyboardButton("\U0001F6AA Log Out", callback_data="logout")],
         ]
     )
 
@@ -378,7 +414,8 @@ async def logout_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     database.unlink_telegram_chat(chat_id)
     SESSIONS.pop(chat_id, None)
-    await update.message.reply_text("You've been logged out. Send /login to sign back in.")
+    LAST_CASE_BY_CHAT.pop(chat_id, None)
+    await update.message.reply_text("✓ You have been logged out safely. Send /login whenever you would like to return.")
 
 
 async def _begin_login(chat_id: int, context: ContextTypes.DEFAULT_TYPE):
@@ -537,18 +574,22 @@ async def view_case_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def cases_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    chat_id = update.effective_chat.id
+    await _send_cases_menu(update.effective_chat.id, context)
+
+
+async def _send_cases_menu(chat_id: int, context: ContextTypes.DEFAULT_TYPE):
     citizen = _get_citizen(chat_id)
     if not citizen:
         await _require_login(chat_id, context)
         return
     cases = database.get_cases_for_citizen(citizen["id"])
     if not cases:
-        await update.message.reply_text("You haven't submitted a case yet. Send /triage to get started.")
+        await context.bot.send_message(chat_id=chat_id, text="You have no submitted cases yet. Start with /triage when you are ready.")
         return
-    await update.message.reply_text(
-        "*Your cases*\nChoose a case to view its status, matched support and worker follow-ups.",
-        parse_mode="Markdown",
+    await context.bot.send_message(
+        chat_id=chat_id,
+        text="<b>Your Cases</b>\n\nChoose a case to view its status, possible support options and worker follow-ups.",
+        parse_mode="HTML",
         reply_markup=_case_list_keyboard(cases),
     )
 
@@ -568,15 +609,7 @@ async def _send_case_recap(chat_id: int, context: ContextTypes.DEFAULT_TYPE, cas
     if not record or record.get("citizen_id") != citizen["id"]:
         await context.bot.send_message(chat_id=chat_id, text="That case could no longer be found.")
         return
-    text = _format_case_recap(record)
-    follow_ups = record.get("follow_ups", [])
-    if follow_ups:
-        text += "\n\n*Worker Follow-ups:*"
-        for follow_up in follow_ups[:3]:
-            text += f"\n• {follow_up.get('worker_name', 'Case worker')}: {follow_up.get('note') or 'A document was shared.'}"
-            if follow_up.get("has_document"):
-                text += " (document available on the website)"
-    await context.bot.send_message(chat_id=chat_id, text=text, parse_mode="Markdown")
+    await _send_summary_html(chat_id, context, _case_summary_markdown(record), reply_markup=_post_submit_keyboard())
 
 
 async def _begin_triage(chat_id: int, context: ContextTypes.DEFAULT_TYPE):
@@ -628,6 +661,18 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await _send_case_recap(chat_id, context)
         return
 
+    if data == "show_cases":
+        await _send_cases_menu(chat_id, context)
+        return
+
+    if data == "logout":
+        if _is_logged_in(chat_id):
+            database.unlink_telegram_chat(chat_id)
+            SESSIONS.pop(chat_id, None)
+            LAST_CASE_BY_CHAT.pop(chat_id, None)
+        await query.edit_message_text("\u2705 You have been logged out safely. Send /login whenever you would like to return.")
+        return
+
     if data.startswith("case_"):
         await _send_case_recap(chat_id, context, data.split("case_", 1)[1])
         return
@@ -673,10 +718,8 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         record = database.get_case(case_id)
         database.publish_case(record)
         LAST_CASE_BY_CHAT[chat_id] = case_id
-        await query.edit_message_text(_format_submission_confirmation(record), parse_mode="Markdown")
-        await context.bot.send_message(
-            chat_id=chat_id, text="What would you like to do next?", reply_markup=_post_submit_keyboard()
-        )
+        await query.edit_message_text(_format_submission_confirmation(record), parse_mode="HTML")
+        await _send_summary_html(chat_id, context, _case_summary_markdown(record), reply_markup=_post_submit_keyboard())
         SESSIONS.pop(chat_id, None)
         return
 
@@ -733,8 +776,13 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
             return
         await update.message.reply_text(
-            "Send /triage to start a guided intake, /demo to try an example scenario, "
-            "or /cases to see your submitted cases and worker follow-ups."
+            "\U0001F331 *What would you like to do?*\n\n"
+            "\U0001F9ED */triage* — Share your situation through a guided intake.\n"
+            "\U0001F9EA */demo* — Explore an example without using your own details.\n"
+            "\U0001F4CB */cases* — View your submitted cases and worker follow-ups.\n"
+            "\U0001F6AA */logout* — Sign out of this Telegram account.",
+            parse_mode="Markdown",
+            reply_markup=_welcome_keyboard(),
         )
         return
 
