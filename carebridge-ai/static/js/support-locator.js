@@ -64,6 +64,33 @@ function renderSupportLocations(data) {
   }).join("");
   state.supportMap.fitBounds(bounds, { padding: [32, 32], maxZoom: 14 });
   lucide.createIcons();
+  renderNearbyOpportunities(data.origin);
+}
+
+function renderNearbyOpportunities(origin) {
+  const section = document.getElementById("nearby-opportunities");
+  const results = document.getElementById("nearby-opportunity-results");
+  document.getElementById("opportunities-subtitle").textContent = `Useful free and low-cost support pathways for residents near ${origin.address}.`;
+  const opportunities = [
+    {
+      icon: "utensils", tone: "text-amber-300", title: "Food support and community meals",
+      text: "Find food support partners, community kitchens and distribution programmes. A Family Service Centre can also help with a referral when needed.",
+      action: "Find food support", href: "https://foodconnect.gov.sg/"
+    },
+    {
+      icon: "briefcase-business", tone: "text-sky-300", title: "Free career and skills guidance",
+      text: "Get a free one-to-one skills and career consultation, browse training options, and check available support for eligible learners.",
+      action: "Explore SkillsFuture", href: "https://www.myskillsfuture.gov.sg/content/portal/en/initiatives/initiatives.html"
+    },
+    {
+      icon: "heart-handshake", tone: "text-emerald-300", title: "Community programmes and help",
+      text: "Check CDC and community initiatives for practical assistance, family programmes and employability support in your area.",
+      action: "View community programmes", href: "https://www.pa.gov.sg/our-network/community-development-councils/common-flagship-programmes/"
+    }
+  ];
+  results.innerHTML = opportunities.map(item => `<article class="rounded-xl border border-white/10 bg-white/[0.03] p-5 flex flex-col"><i data-lucide="${item.icon}" class="w-5 h-5 ${item.tone} mb-3"></i><h3 class="text-base font-semibold text-white">${item.title}</h3><p class="text-sm text-slate-400 leading-relaxed mt-2 flex-1">${item.text}</p><a href="${item.href}" target="_blank" rel="noopener noreferrer" class="mini-action-btn mt-4 w-fit">${item.action}<i data-lucide="arrow-up-right" class="w-3.5 h-3.5"></i></a></article>`).join("");
+  section.classList.remove("hidden");
+  lucide.createIcons();
 }
 
 
