@@ -205,16 +205,13 @@ function buildCaseCard(record, animate) {
 
   const actionsHtml = record.assigned_worker_id
     ? `
-      <button onclick="openReferralModal('${record.case_id}')" class="mini-action-btn mini-action-btn--emerald">
-        <i data-lucide="clipboard-copy" class="w-3.5 h-3.5"></i>Referral
+      ${record.assigned_worker_id === state.ownWorkerId ? `<button onclick="openWorkboardModal('${record.case_id}')" class="mini-action-btn mini-action-btn--emerald"><i data-lucide="list-checks" class="w-3.5 h-3.5"></i>Manage case</button>` : ""}
+      ${record.assigned_worker_id === state.ownWorkerId ? `<button onclick="openFollowUpModal('${record.case_id}')" class="mini-action-btn mini-action-btn--emerald"><i data-lucide="message-square-plus" class="w-3.5 h-3.5"></i>Send update</button>` : ""}
+      <button onclick="openReferralModal('${record.case_id}')" class="mini-action-btn">
+        <i data-lucide="clipboard-copy" class="w-3.5 h-3.5"></i>Case summary
       </button>
-      ${record.assigned_worker_id === state.ownWorkerId ? `<button onclick="openFollowUpModal('${record.case_id}')" class="mini-action-btn mini-action-btn--emerald"><i data-lucide="message-square-plus" class="w-3.5 h-3.5"></i>Follow up</button>` : ""}
-      ${record.assigned_worker_id === state.ownWorkerId ? `<button onclick="openWorkboardModal('${record.case_id}')" class="mini-action-btn"><i data-lucide="list-checks" class="w-3.5 h-3.5"></i>Workboard</button>` : ""}
       <button onclick="openReferModal('${record.case_id}')" class="mini-action-btn">
-        <i data-lucide="send-to-back" class="w-3.5 h-3.5"></i>${record.assigned_worker_id === state.ownWorkerId ? "Refer" : "Referred: " + escapeHtml(record.assigned_worker_name)}
-      </button>
-      <button onclick="openJsonModal('${record.case_id}')" class="mini-action-btn">
-        <i data-lucide="braces" class="w-3.5 h-3.5"></i>JSON
+        <i data-lucide="send-to-back" class="w-3.5 h-3.5"></i>${record.assigned_worker_id === state.ownWorkerId ? "Hand off" : "Assigned"}
       </button>
       <button onclick="downloadCaseReport('${record.case_id}')" class="mini-action-btn">
         <i data-lucide="download" class="w-3.5 h-3.5"></i>Download
@@ -227,10 +224,7 @@ function buildCaseCard(record, animate) {
         <i data-lucide="check" class="w-3.5 h-3.5"></i>Accept
       </button>
       <button onclick="declineCase('${record.case_id}')" class="mini-action-btn">
-        <i data-lucide="x" class="w-3.5 h-3.5"></i>Decline
-      </button>
-      <button onclick="openJsonModal('${record.case_id}')" class="mini-action-btn">
-        <i data-lucide="braces" class="w-3.5 h-3.5"></i>JSON
+        <i data-lucide="x" class="w-3.5 h-3.5"></i>Hide for now
       </button>`;
 
   card.innerHTML = caseCardContentHtml(record) + `<div class="flex flex-wrap gap-2">${actionsHtml}</div>`;
@@ -243,9 +237,6 @@ function buildReviewedCard(record) {
   card.dataset.caseId = record.case_id;
 
   const actionsHtml = `
-      <button onclick="openJsonModal('${record.case_id}')" class="mini-action-btn">
-        <i data-lucide="braces" class="w-3.5 h-3.5"></i>JSON
-      </button>
       <button onclick="downloadCaseReport('${record.case_id}')" class="mini-action-btn">
         <i data-lucide="download" class="w-3.5 h-3.5"></i>Download
       </button>
@@ -550,13 +541,6 @@ async function sendFollowUp(event) {
     button.disabled = false;
   }
   return false;
-}
-
-function openJsonModal(caseId) {
-  const record = state.casesById.get(caseId);
-  if (!record) return;
-  document.getElementById("json-content").textContent = JSON.stringify(record, null, 2);
-  openModal("json-modal");
 }
 
 function openSchemeModal(caseId, schemeId) {
