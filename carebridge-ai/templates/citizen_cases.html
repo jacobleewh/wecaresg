@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}My Cases | WeCareSG{% endblock %}
+{% block extra_head %}<style>main .glass-card { min-height:0; } .channel-pill[aria-current="page"] { color:#34d399; border-color:#34d399; }</style>{% endblock %}
+{% block body %}
+{% include "_citizen_nav.html" %}
+<main class="flex-1 max-w-[1100px] w-full mx-auto px-6 py-8">
+  <section class="glass-card card-accent card-accent--violet p-6">
+    <div class="mb-5 flex items-center justify-between"><div><h2 class="text-2xl font-extrabold tracking-tight text-white mb-1">Your Submitted Cases</h2><p class="text-sm text-slate-400">Track case status, support options, worker messages and documents.</p></div><span id="case-count-badge" class="text-[11px] font-mono px-2.5 py-1 rounded-md bg-white/5 border border-white/10 text-slate-400">0 cases</span></div>
+    <div id="hub-empty" class="min-h-64 flex flex-col items-center justify-center text-center text-slate-500 gap-3 border-2 border-dashed border-white/10 rounded-2xl"><div class="radar-orb"><i data-lucide="inbox" class="w-7 h-7 text-emerald-300"></i></div><p class="text-sm max-w-xs">No submitted cases yet. Return to Chat when you are ready to ask for help.</p><a href="{{ url_for('citizen_dashboard') }}" class="mini-action-btn">Open Chat</a></div>
+    <div id="case-feed" class="hidden grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+  </section>
+</main>
+<div id="follow-ups-modal" class="modal-overlay hidden"><div class="modal-box"><div class="modal-header"><h3 class="font-bold text-white flex items-center gap-2"><i data-lucide="messages-square" class="w-4 h-4 text-emerald-400"></i>Worker Follow-ups</h3><button onclick="closeModal('follow-ups-modal')" class="modal-close">&times;</button></div><div id="follow-ups-content" class="modal-body"></div></div></div>
+<div id="summary-modal" class="modal-overlay hidden"><div class="modal-box"><div class="modal-header"><h3 class="font-bold text-white flex items-center gap-2"><i data-lucide="file-text" class="w-4 h-4 text-emerald-400"></i>What You Shared</h3><button onclick="closeModal('summary-modal')" class="modal-close">&times;</button></div><div id="summary-content" class="modal-body"></div><div id="summary-saved-actions" class="modal-footer hidden"><button onclick="downloadSummary()" class="mini-action-btn mini-action-btn--emerald">Download Summary</button></div></div></div>
+<div id="scheme-modal" class="modal-overlay hidden"><div class="modal-box"><div class="modal-header"><h3 class="font-bold text-white flex items-center gap-2"><i data-lucide="shield-check" class="w-4 h-4 text-emerald-400"></i>Scheme Details</h3><button onclick="closeModal('scheme-modal')" class="modal-close">&times;</button></div><div id="scheme-content" class="modal-body"></div></div></div>
+{% endblock %}
+{% block extra_scripts %}<script src="{{ url_for('static', filename='js/citizen.js') }}"></script>{% endblock %}

@@ -9,7 +9,7 @@ const state = {
 
 document.addEventListener("DOMContentLoaded", () => {
   loadDemoScenarios();
-  loadMyCases();
+  if (document.getElementById("case-feed")) loadMyCases();
 
 
 });

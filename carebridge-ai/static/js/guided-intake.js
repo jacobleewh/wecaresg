@@ -152,7 +152,8 @@ async function confirmSubmitCase() {
     });
     const record = await response.json().catch(() => { throw new Error("Please sign in again before submitting."); });
     if (!response.ok) throw new Error(record.error || "Could not submit. Please try again.");
-    addCaseToFeed(record, { animate: true });
+    if (document.getElementById("case-feed")) addCaseToFeed(record, { animate: true });
+    else window.location.href = "/citizen/cases";
     state.pendingPreview = null;
     btn.classList.add("hidden");
     document.getElementById("support-choice-message").textContent = "Your case has been shared for review. Track updates in Your Submitted Cases.";

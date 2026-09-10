@@ -264,6 +264,12 @@ def citizen_dashboard():
     return render_template("citizen_dashboard.html", display_name=session.get("display_name"))
 
 
+@app.route("/citizen/cases")
+@citizen_required
+def citizen_cases_page():
+    return render_template("citizen_cases.html", display_name=session.get("display_name"))
+
+
 @app.route("/support-locator")
 @citizen_required
 def support_locator_page():

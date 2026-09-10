@@ -9,40 +9,10 @@ main .glass-card { min-height: 0; }
 {% block body %}
   {% include "_citizen_nav.html" %}
 
-  <main class="flex-1 max-w-[1400px] w-full mx-auto px-6 py-8 grid grid-cols-1 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] items-start gap-6">
+  <main class="flex-1 max-w-[960px] w-full mx-auto px-6 py-8">
 
     {% include "_guided_intake.html" %}
-
-    <!-- RIGHT: My Cases -->
-    <section class="glass-card card-accent card-accent--violet p-6 flex flex-col overflow-hidden">
-      <div class="mb-5 flex items-center justify-between">
-        <div>
-          <h2 class="text-xl font-extrabold tracking-tight text-white mb-1">Your Submitted Cases</h2>
-          <p class="text-sm text-slate-400">Track the status of everything you've shared with us.</p>
-        </div>
-        <span id="case-count-badge" class="text-[11px] font-mono px-2.5 py-1 rounded-md bg-white/5 border border-white/10 text-slate-400">0 cases</span>
-      </div>
-
-      <div id="hub-empty" class="flex-1 flex flex-col items-center justify-center text-center text-slate-500 gap-3 border-2 border-dashed border-white/10 rounded-2xl">
-        <div class="radar-orb"><i data-lucide="inbox" class="w-7 h-7 text-emerald-300"></i></div>
-        <p class="text-sm max-w-xs">Cases appear here only after you review your recommendations and choose to submit for help.</p>
-      </div>
-
-      <div id="case-feed" class="hidden flex-1 overflow-y-auto scrollbar-thin space-y-4 pr-1"></div>
-    </section>
-
   </main>
-
-  <!-- Worker follow-ups modal -->
-  <div id="follow-ups-modal" class="modal-overlay hidden">
-    <div class="modal-box">
-      <div class="modal-header">
-        <h3 class="font-bold text-white flex items-center gap-2"><i data-lucide="messages-square" class="w-4 h-4 text-emerald-400"></i>Worker Follow-ups</h3>
-        <button onclick="closeModal('follow-ups-modal')" class="modal-close">&times;</button>
-      </div>
-      <div id="follow-ups-content" class="modal-body"></div>
-    </div>
-  </div>
 
   <!-- Patient summary modal -->
   <div id="summary-modal" class="modal-overlay hidden">
