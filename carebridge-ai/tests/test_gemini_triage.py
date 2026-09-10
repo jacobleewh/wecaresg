@@ -29,15 +29,16 @@ class GeminiTriageTests(unittest.TestCase):
         source_patch.start()
         self.addCleanup(source_patch.stop)
 
-    def test_recommendations_come_from_provider_and_sources_are_preserved(self):
+    def test_recommendations_come_from_provider_without_public_source_links(self):
         with patch.object(engine, "_generate", return_value=(json.dumps(assessment()), {})) as generate:
             result = engine.analyze_hardship("Test case")
         self.assertEqual(generate.call_count, 1)
         self.assertIn("Test source text", generate.call_args.args[0])
         self.assertEqual(result["matched_schemes"][0]["name"], "Source-provided test option")
         self.assertEqual(result["recommendation_method"], "gemini-official-pages")
-        self.assertIn("https://www.msf.gov.sg/", result["patient_summary_markdown"])
-        self.assertIn("https://www.msf.gov.sg/", result["matched_schemes"][0]["how_to_apply"])
+        self.assertNotIn("https://", result["patient_summary_markdown"])
+        self.assertNotIn("https://", result["matched_schemes"][0]["how_to_apply"])
+        self.assertEqual(result["matched_schemes"][0]["sources"], [{"title": "MSF", "url": "https://www.msf.gov.sg/"}])
 
     def test_missing_grounding_stops_instead_of_making_up_options(self):
         with patch.object(engine, "fetch_official_sources", return_value=[]), patch.object(engine, "_generate") as generate:
@@ -73,7 +74,7 @@ class GeminiTriageTests(unittest.TestCase):
     def test_quota_failure_is_reported_and_not_retried_with_offline_data(self):
         error = HTTPError("https://generativelanguage.googleapis.com/", 429, "quota", {}, None)
         with patch.dict(engine.os.environ, {"GEMINI_API_KEY": "test-key"}), patch.object(engine, "urlopen", side_effect=error) as request:
-            with self.assertRaisesRegex(engine.TriageError, "usage limit"):
+            with self.assertRaisesRegex(engine.TriageError, "busy right now"):
                 engine.analyze_hardship("Test case")
             self.assertEqual(request.call_count, 1)
 
