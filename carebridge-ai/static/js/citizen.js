@@ -75,6 +75,7 @@ function addCaseToFeed(record, { animate }) {
   });
   for (const [label, callback] of [
     ["View Full Summary", () => openSummaryModal(record.case_id)],
+    ["View Next Steps", () => openJourneyModal(record.case_id)],
     [(record.follow_ups || []).length ? `View ${record.follow_ups.length} Worker Follow-ups` : "Check Worker Follow-ups", () => openFollowUpsModal(record.case_id)],
     ["Delete Case", () => deleteCase(record.case_id)],
   ]) {
@@ -88,6 +89,22 @@ function addCaseToFeed(record, { animate }) {
   applyCaseFilter();
   document.getElementById("case-count-badge").textContent = `${state.renderedIds.size} case${state.renderedIds.size === 1 ? "" : "s"}`;
   lucide.createIcons();
+}
+
+function openJourneyModal(caseId) {
+  const record = state.casesById.get(caseId);
+  if (!record) return;
+  const reviewed = (record.status || "").toLowerCase() === "reviewed";
+  const followUp = (record.follow_ups || [])[0];
+  const steps = [
+    ["Case submitted", "Your request has been recorded.", true],
+    ["Case worker review", "A case worker reviews your information and possible support options.", record.status !== "New"],
+    ["Worker follow-up", followUp ? "A worker has sent an update. Review it below." : "You will be notified when a worker sends an update.", Boolean(followUp)],
+    ["Next step or outcome", reviewed ? "Your case is marked reviewed. Check the worker instructions." : "Prepare requested documents and complete any relevant applications.", reviewed],
+  ];
+  const docs = ["Identity documents for household members", "Recent bank statements", "Payslips, employment letter, or job-search records", "Rent, utilities and service-and-conservancy-charge bills", "Medical letters, if relevant", "School, childcare or student-care fee information, if relevant"];
+  document.getElementById("journey-content").innerHTML = `<p class="text-sm text-slate-400 mb-5">Case ${escapeHtml(record.case_id)} · ${escapeHtml(record.status || "New")}</p><div class="space-y-4">${steps.map(([title, text, done]) => `<div class="rounded-xl border ${done ? "border-emerald-400/25 bg-emerald-400/5" : "border-white/10"} p-4"><p class="font-semibold text-white">${done ? "✓" : "○"} ${title}</p><p class="text-sm text-slate-400 mt-1">${text}</p></div>`).join("")}</div>${followUp ? `<div class="rounded-xl border border-emerald-400/25 p-4 mt-5"><p class="text-xs font-semibold text-emerald-300">LATEST WORKER UPDATE</p><p class="text-sm text-slate-200 mt-2">${escapeHtml(followUp.note || "A document was shared.")}</p>${followUp.has_document ? `<a class="mini-action-btn mt-3" href="/api/follow-ups/${encodeURIComponent(followUp.id)}/document">Download document</a>` : ""}</div>` : ""}<div class="mt-5"><h4 class="font-semibold text-white">Application and support</h4><div class="flex flex-wrap gap-2 mt-3"><a class="mini-action-btn" href="https://supportgowhere.life.gov.sg/" target="_blank" rel="noopener">Find and apply for support</a><a class="mini-action-btn" href="/support-locator">Find nearby help</a></div></div><div class="mt-5"><h4 class="font-semibold text-white">Documents to prepare</h4><div class="mt-3 space-y-2">${docs.map(item => `<label class="flex gap-2 text-sm text-slate-300"><input type="checkbox" class="accent-emerald-400"><span>${item}</span></label>`).join("")}</div></div>`;
+  openModal("journey-modal");
 }
 
 function initialiseCaseFilters() {
