@@ -43,11 +43,21 @@ from sqlalchemy.orm import declarative_base, relationship, sessionmaker
 from werkzeug.security import check_password_hash, generate_password_hash
 
 DB_PATH = Path(__file__).parent / "wecaresg.db"
+DATABASE_URL = __import__("os").environ.get("DATABASE_URL", "").strip()
 
-engine = create_engine(
-    f"sqlite:///{DB_PATH}",
-    connect_args={"check_same_thread": False},
-)
+# SQLite is convenient for local demos, but Railway containers have an
+# ephemeral filesystem.  In production, set DATABASE_URL from a Railway
+# PostgreSQL service so accounts, Telegram links, cases, and follow-ups
+# survive restarts and deployments.
+if DATABASE_URL:
+    if DATABASE_URL.startswith("postgres://"):
+        DATABASE_URL = "postgresql://" + DATABASE_URL.removeprefix("postgres://")
+    engine = create_engine(DATABASE_URL, pool_pre_ping=True)
+else:
+    engine = create_engine(
+        f"sqlite:///{DB_PATH}",
+        connect_args={"check_same_thread": False},
+    )
 
 
 @event.listens_for(engine, "connect")
@@ -55,10 +65,13 @@ def _enable_wal_mode(dbapi_connection, connection_record):
     """SQLite runs in WAL mode so concurrent readers (Flask request threads,
     the SSE stream, and the Telegram bot's asyncio thread) never block on a
     single writer."""
-    cursor = dbapi_connection.cursor()
-    cursor.execute("PRAGMA journal_mode=WAL")
-    cursor.execute("PRAGMA foreign_keys=ON")
-    cursor.close()
+    # PostgreSQL does not support SQLite PRAGMAs.  Foreign keys and safe
+    # concurrent reads are already enforced by PostgreSQL itself.
+    if not DATABASE_URL:
+        cursor = dbapi_connection.cursor()
+        cursor.execute("PRAGMA journal_mode=WAL")
+        cursor.execute("PRAGMA foreign_keys=ON")
+        cursor.close()
 
 
 SessionLocal = sessionmaker(bind=engine, expire_on_commit=False)

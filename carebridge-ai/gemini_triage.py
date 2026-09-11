@@ -75,7 +75,9 @@ def _generate(prompt):
     model = _select_available_model(key, configured_model)
     payload = {
         "contents": [{"role": "user", "parts": [{"text": prompt}]}],
-        "generationConfig": {"temperature": 0.2, "maxOutputTokens": 16000},
+        # A citizen-facing assessment is concise.  Keeping this bounded avoids
+        # reserving an unnecessarily large output quota on every intake.
+        "generationConfig": {"temperature": 0.2, "maxOutputTokens": 4096},
     }
     payload["generationConfig"]["responseMimeType"] = "application/json"
     request = Request(
