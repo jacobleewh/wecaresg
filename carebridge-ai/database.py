@@ -52,6 +52,11 @@ DATABASE_URL = __import__("os").environ.get("DATABASE_URL", "").strip()
 if DATABASE_URL:
     if DATABASE_URL.startswith("postgres://"):
         DATABASE_URL = "postgresql://" + DATABASE_URL.removeprefix("postgres://")
+    if DATABASE_URL.startswith("postgresql://"):
+        # Railway supplies a generic PostgreSQL URL.  Select the modern
+        # psycopg v3 driver installed in requirements instead of SQLAlchemy's
+        # legacy psycopg2 default.
+        DATABASE_URL = "postgresql+psycopg://" + DATABASE_URL.removeprefix("postgresql://")
     engine = create_engine(DATABASE_URL, pool_pre_ping=True)
 else:
     engine = create_engine(
