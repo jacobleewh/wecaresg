@@ -19,7 +19,7 @@ class TriageError(RuntimeError):
 
 def _generate(prompt):
     key = os.environ.get("GEMINI_API_KEY", "").strip()
-    model = os.environ.get("GEMINI_MODEL", "gemini-3.6-flash").strip()
+    model = os.environ.get("GEMINI_MODEL", "gemini-2.5-flash").strip()
     if not key:
         raise TriageError("The assessment service is not configured. Please ask the administrator to set it up.")
     if not re.fullmatch(r"[a-zA-Z0-9.-]+", model):
