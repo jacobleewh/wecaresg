@@ -414,6 +414,20 @@ def link_telegram_chat(citizen_id: str, chat_id):
         session.close()
 
 
+def get_citizen_by_id(citizen_id: str):
+    """Returns a minimal citizen record when the account still exists."""
+    if not citizen_id:
+        return None
+    session = SessionLocal()
+    try:
+        citizen = session.query(Citizen).filter_by(id=citizen_id).first()
+        if not citizen:
+            return None
+        return {"id": citizen.id, "username": citizen.username, "display_name": citizen.display_name}
+    finally:
+        session.close()
+
+
 def get_citizen_by_telegram_chat(chat_id):
     """Returns {"id", "username", "display_name"} if this Telegram chat is
     linked to a logged-in citizen account, else None."""

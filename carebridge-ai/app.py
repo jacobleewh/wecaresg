@@ -109,6 +109,13 @@ def citizen_required(view):
     def wrapped(*args, **kwargs):
         if session.get("role") != "citizen":
             return redirect(url_for("login_page", role="citizen"))
+        # Railway's local filesystem is ephemeral.  If it restarts, an old
+        # browser cookie can point at a citizen row that no longer exists.
+        # End that stale session cleanly instead of allowing a foreign-key
+        # error when the citizen submits a completed assessment.
+        if not database.get_citizen_by_id(session.get("citizen_id", "")):
+            session.clear()
+            return redirect(url_for("login_page", role="citizen"))
         return view(*args, **kwargs)
 
     return wrapped

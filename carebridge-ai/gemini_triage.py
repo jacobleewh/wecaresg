@@ -3,6 +3,7 @@ import json
 import logging
 import os
 import re
+import time
 from datetime import datetime, timezone
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlparse
@@ -82,26 +83,42 @@ def _generate(prompt):
         data=json.dumps(payload).encode(),
         headers={"x-goog-api-key": key, "Content-Type": "application/json"},
     )
-    try:
-        with urlopen(request, timeout=90) as response:
-            result = json.load(response)
-    except HTTPError as error:
-        # Keep diagnostic detail in the server log, never in a citizen-facing
-        # message or a case record.  The HTTP code is enough to diagnose a
-        # missing model/configuration without logging API keys or case text.
-        logger.warning("Gemini assessment request failed (HTTP %s, model=%s)", error.code, model)
-        if error.code in (400, 401, 403):
-            message = "The assessment service rejected the request. Please ask the administrator to check its configuration."
-        elif error.code == 404:
-            message = "The assessment model is not available. Please ask the administrator to update the service configuration."
-        elif error.code == 429:
-            message = "The assessment service is busy right now. Please try again later."
-        else:
-            message = "The assessment service is unavailable right now. Please try again shortly."
-        raise TriageError(message) from None
-    except (URLError, TimeoutError, OSError, ValueError) as error:
-        logger.warning("Gemini assessment request could not complete (%s, model=%s)", type(error).__name__, model)
-        raise TriageError("The assessment service could not be reached. Your answers are still here; please try again.") from None
+    # A 503 from Gemini is normally transient capacity pressure.  Retry the
+    # same request before making a citizen repeat an intake; no case is saved
+    # until the caller explicitly confirms the resulting preview.
+    for attempt in range(3):
+        try:
+            with urlopen(request, timeout=90) as response:
+                result = json.load(response)
+            break
+        except HTTPError as error:
+            if error.code == 503 and attempt < 2:
+                delay_seconds = attempt + 1
+                logger.warning(
+                    "Gemini assessment temporarily unavailable (HTTP 503, model=%s); retrying in %ss",
+                    model,
+                    delay_seconds,
+                )
+                time.sleep(delay_seconds)
+                continue
+            # Keep diagnostic detail in the server log, never in a citizen-facing
+            # message or a case record.  The HTTP code is enough to diagnose a
+            # missing model/configuration without logging API keys or case text.
+            logger.warning("Gemini assessment request failed (HTTP %s, model=%s)", error.code, model)
+            if error.code in (400, 401, 403):
+                message = "The assessment service rejected the request. Please ask the administrator to check its configuration."
+            elif error.code == 404:
+                message = "The assessment model is not available. Please ask the administrator to update the service configuration."
+            elif error.code == 429:
+                message = "The assessment service is busy right now. Please try again later."
+            else:
+                message = "The assessment service is unavailable right now. Please try again shortly."
+            raise TriageError(message) from None
+        except (URLError, TimeoutError, OSError, ValueError) as error:
+            logger.warning("Gemini assessment request could not complete (%s, model=%s)", type(error).__name__, model)
+            raise TriageError("The assessment service could not be reached. Your answers are still here; please try again.") from None
+    else:  # defensive: the loop returns or raises in all expected paths
+        raise TriageError("The assessment service is unavailable right now. Please try again shortly.")
     candidates = result.get("candidates") or []
     if not candidates or candidates[0].get("finishReason") != "STOP":
         raise TriageError("The assessment could not be completed. Please review your answers and try again.")
