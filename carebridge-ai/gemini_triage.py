@@ -14,6 +14,51 @@ from dotenv import load_dotenv
 load_dotenv()
 logger = logging.getLogger("wecaresg.assessment")
 
+# Prefer capable, stable Flash models, but only after confirming that the
+# configured API key can actually use one.  Gemini availability varies by
+# project, billing account, and model retirement schedule.
+MODEL_PREFERENCE = (
+    "gemini-3.8-flash",
+    "gemini-3.7-flash",
+    "gemini-3.6-flash",
+    "gemini-3.5-flash",
+    "gemini-2.5-flash",
+    "gemini-2.5-flash-lite",
+)
+
+
+def _select_available_model(key, configured_model):
+    """Return an API-key-supported generateContent model when discoverable."""
+    try:
+        request = Request(
+            "https://generativelanguage.googleapis.com/v1beta/models",
+            headers={"x-goog-api-key": key},
+        )
+        with urlopen(request, timeout=20) as response:
+            listing = json.load(response)
+        available = {
+            item.get("name", "").removeprefix("models/")
+            for item in listing.get("models", [])
+            if "generateContent" in item.get("supportedGenerationMethods", [])
+        }
+        if configured_model in available:
+            return configured_model
+        for candidate in MODEL_PREFERENCE:
+            if candidate in available:
+                logger.info("Configured Gemini model %s is unavailable; using supported model %s", configured_model, candidate)
+                return candidate
+        if available:
+            # Retain a functional service even when Gemini introduces a new
+            # model name before this app's preference list is updated.
+            chosen = sorted(available)[0]
+            logger.info("Using discovered Gemini generateContent model %s", chosen)
+            return chosen
+    except (HTTPError, URLError, TimeoutError, OSError, ValueError) as error:
+        # The actual generation request below remains authoritative; discovery
+        # is only a compatibility improvement and must not make triage fail.
+        logger.warning("Could not discover Gemini models (%s); using configured model", type(error).__name__)
+    return configured_model
+
 
 class TriageError(RuntimeError):
     """A safe, user-facing failure; never includes credentials or case text."""
@@ -21,11 +66,12 @@ class TriageError(RuntimeError):
 
 def _generate(prompt):
     key = os.environ.get("GEMINI_API_KEY", "").strip()
-    model = os.environ.get("GEMINI_MODEL", "gemini-2.5-flash").strip()
+    configured_model = os.environ.get("GEMINI_MODEL", "gemini-3.6-flash").strip()
     if not key:
         raise TriageError("The assessment service is not configured. Please ask the administrator to set it up.")
-    if not re.fullmatch(r"[a-zA-Z0-9.-]+", model):
+    if not re.fullmatch(r"[a-zA-Z0-9.-]+", configured_model):
         raise TriageError("The assessment service configuration is invalid. Please ask the administrator to check it.")
+    model = _select_available_model(key, configured_model)
     payload = {
         "contents": [{"role": "user", "parts": [{"text": prompt}]}],
         "generationConfig": {"temperature": 0.2, "maxOutputTokens": 16000},
