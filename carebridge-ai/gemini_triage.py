@@ -135,6 +135,24 @@ def _strings(value):
     return isinstance(value, list) and all(isinstance(item, str) for item in value)
 
 
+def _parse_assessment_json(raw):
+    """Parse JSON mode output even if a provider wraps it in a code fence."""
+    candidate = raw.strip()
+    if candidate.startswith("```"):
+        candidate = re.sub(r"^```(?:json)?\s*", "", candidate, flags=re.IGNORECASE)
+        candidate = re.sub(r"\s*```$", "", candidate).strip()
+    try:
+        return json.loads(candidate)
+    except ValueError:
+        # Some compatible models prepend a short explanation despite JSON mode.
+        # Only parse the outer JSON object; schema validation below remains the
+        # guard against partial or invented recommendations.
+        start, end = candidate.find("{"), candidate.rfind("}")
+        if start >= 0 and end > start:
+            return json.loads(candidate[start : end + 1])
+        raise
+
+
 def _validate(data, sources):
     """Reject incomplete responses before they can become a preview or case."""
     try:
@@ -199,7 +217,7 @@ def analyze_hardship(text):
         json.dumps({"date": str(datetime.now(timezone.utc).date()), "schema": schema, "case": text, "sources": sources}),
     )
     try:
-        data = json.loads(raw)
+        data = _parse_assessment_json(raw)
     except ValueError:
         raise TriageError("The assessment returned an unreadable result. Please try again.") from None
     data = _validate(data, sources)
