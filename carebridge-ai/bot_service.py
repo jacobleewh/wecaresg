@@ -280,15 +280,18 @@ def _summary_keyboard() -> InlineKeyboardMarkup:
     )
 
 
-def _post_submit_keyboard() -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(
+def _post_submit_keyboard(case_id: str | None = None) -> InlineKeyboardMarkup:
+    buttons = [[InlineKeyboardButton("\U0001F50D View Case", callback_data=f"case_{case_id}" if case_id else "view_case")]]
+    if case_id:
+        buttons.append([InlineKeyboardButton("\U0001F5D1\uFE0F Delete this case", callback_data=f"delete_case_{case_id}")])
+    buttons.extend(
         [
-            [InlineKeyboardButton("\U0001F50D View Case", callback_data="view_case")],
             [InlineKeyboardButton("\U0001F4CB My Cases", callback_data="show_cases")],
             [InlineKeyboardButton("\U0001F504 Start New", callback_data="start_new_triage")],
             [InlineKeyboardButton("\U0001F6AA Log Out", callback_data="logout")],
         ]
     )
+    return InlineKeyboardMarkup(buttons)
 
 
 def _case_list_keyboard(cases: list) -> InlineKeyboardMarkup:
@@ -610,7 +613,7 @@ async def _send_case_recap(chat_id: int, context: ContextTypes.DEFAULT_TYPE, cas
     if not record or record.get("citizen_id") != citizen["id"]:
         await context.bot.send_message(chat_id=chat_id, text="That case could no longer be found.")
         return
-    await _send_summary_html(chat_id, context, _case_summary_markdown(record), reply_markup=_post_submit_keyboard())
+    await _send_summary_html(chat_id, context, _case_summary_markdown(record), reply_markup=_post_submit_keyboard(record["case_id"]))
 
 
 async def _begin_triage(chat_id: int, context: ContextTypes.DEFAULT_TYPE):
@@ -674,6 +677,44 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.edit_message_text("\u2705 You have been logged out safely. Send /login whenever you would like to return.")
         return
 
+    if data.startswith("delete_case_"):
+        case_id = data.split("delete_case_", 1)[1]
+        citizen = _get_citizen(chat_id)
+        record = database.get_case(case_id)
+        if not citizen or not record or record.get("citizen_id") != citizen["id"]:
+            await query.edit_message_text("That case could no longer be found.")
+            return
+        await query.edit_message_text(
+            f"Delete case {case_id} permanently? This also removes its follow-ups and attached documents. This cannot be undone.",
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton("\U0001F5D1\uFE0F Yes, delete permanently", callback_data=f"confirm_delete_case_{case_id}")],
+                [InlineKeyboardButton("Cancel", callback_data=f"case_{case_id}")],
+            ]),
+        )
+        return
+
+    if data.startswith("confirm_delete_case_"):
+        case_id = data.split("confirm_delete_case_", 1)[1]
+        citizen = _get_citizen(chat_id)
+        if not citizen:
+            await query.edit_message_text("Please /login again before deleting a case.")
+            return
+        document_paths = database.delete_case_for_citizen(case_id, citizen["id"])
+        if document_paths is None:
+            await query.edit_message_text("That case could no longer be found.")
+            return
+        upload_dir = Path(__file__).parent / "instance" / "follow_up_documents"
+        for filename in document_paths:
+            try:
+                (upload_dir / Path(filename).name).unlink(missing_ok=True)
+            except OSError:
+                logger.warning("Could not remove follow-up document %s", filename)
+        if LAST_CASE_BY_CHAT.get(chat_id) == case_id:
+            LAST_CASE_BY_CHAT.pop(chat_id, None)
+        await query.edit_message_text("\u2705 Case deleted permanently. It is no longer visible to you or case workers.")
+        await _send_cases_menu(chat_id, context)
+        return
+
     if data.startswith("case_"):
         await _send_case_recap(chat_id, context, data.split("case_", 1)[1])
         return
@@ -720,7 +761,7 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         database.publish_case(record)
         LAST_CASE_BY_CHAT[chat_id] = case_id
         await query.edit_message_text(_format_submission_confirmation(record), parse_mode="HTML")
-        await _send_summary_html(chat_id, context, _case_summary_markdown(record), reply_markup=_post_submit_keyboard())
+        await _send_summary_html(chat_id, context, _case_summary_markdown(record), reply_markup=_post_submit_keyboard(case_id))
         SESSIONS.pop(chat_id, None)
         return
 
