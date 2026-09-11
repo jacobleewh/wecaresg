@@ -1,5 +1,6 @@
 """Free-tier Gemini triage using directly retrieved official source pages."""
 import json
+import logging
 import os
 import re
 from datetime import datetime, timezone
@@ -11,6 +12,7 @@ from official_sources import fetch_official_sources
 from dotenv import load_dotenv
 
 load_dotenv()
+logger = logging.getLogger("wecaresg.assessment")
 
 
 class TriageError(RuntimeError):
@@ -38,14 +40,21 @@ def _generate(prompt):
         with urlopen(request, timeout=90) as response:
             result = json.load(response)
     except HTTPError as error:
+        # Keep diagnostic detail in the server log, never in a citizen-facing
+        # message or a case record.  The HTTP code is enough to diagnose a
+        # missing model/configuration without logging API keys or case text.
+        logger.warning("Gemini assessment request failed (HTTP %s, model=%s)", error.code, model)
         if error.code in (400, 401, 403):
             message = "The assessment service rejected the request. Please ask the administrator to check its configuration."
+        elif error.code == 404:
+            message = "The assessment model is not available. Please ask the administrator to update the service configuration."
         elif error.code == 429:
             message = "The assessment service is busy right now. Please try again later."
         else:
             message = "The assessment service is unavailable right now. Please try again shortly."
         raise TriageError(message) from None
-    except (URLError, TimeoutError, OSError, ValueError):
+    except (URLError, TimeoutError, OSError, ValueError) as error:
+        logger.warning("Gemini assessment request could not complete (%s, model=%s)", type(error).__name__, model)
         raise TriageError("The assessment service could not be reached. Your answers are still here; please try again.") from None
     candidates = result.get("candidates") or []
     if not candidates or candidates[0].get("finishReason") != "STOP":

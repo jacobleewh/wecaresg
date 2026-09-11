@@ -58,6 +58,10 @@ from utils import sanitizer
 load_dotenv()
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
+# The Telegram client logs full request URLs at INFO level.  Suppress its
+# transport chatter so operational logs never disclose the bot token.
+logging.getLogger("httpx").setLevel(logging.WARNING)
+logging.getLogger("httpcore").setLevel(logging.WARNING)
 logger = logging.getLogger("wecaresg.app")
 
 app = Flask(__name__)
